@@ -2,6 +2,7 @@
 
 #include <windef.h>
 #include <cstdint>
+#include <string>
 
 enum Direction : uint8_t {
   North     = 0,
@@ -581,6 +582,27 @@ SK_DualSense_GetInputReport (void *pGenericDev)
     //}
 
     return true;
+  }
+
+  else
+  {
+    DWORD dwLastErr =
+      GetLastError ();
+
+    if (dwLastErr == ERROR_DEVICE_NOT_CONNECTED ||
+        dwLastErr == ERROR_INVALID_HANDLE)
+    {
+      pDevice->hDeviceFile =
+               CreateFileW ( pDevice->wszDevicePath,
+                               FILE_GENERIC_READ | FILE_GENERIC_WRITE,
+                               FILE_SHARE_READ   | FILE_SHARE_WRITE,
+                                 nullptr, OPEN_EXISTING, 0x0, nullptr );
+
+      return true;
+    }
+
+    static auto x =
+      MessageBox (nullptr, std::to_wstring (GetLastError ()).c_str (), L"Error", MB_OK);
   }
   
   return false;

@@ -213,6 +213,9 @@ using XInputPowerOff_pfn = DWORD (WINAPI *)(
   _In_ DWORD dwUserIndex
 );
 
+using XInputGetDSoundAudioDeviceGuids_pfn = DWORD (WINAPI *)(DWORD,GUID*,GUID*);
+using XInputGetAudioDeviceIds_pfn         = DWORD (WINAPI *)(DWORD,LPWSTR,UINT*,LPWSTR,UINT*);
+
 #define XINPUT_GETSTATE_ORDINAL           MAKEINTRESOURCEA (002)
 #define XINPUT_SETSTATE_ORDINAL           MAKEINTRESOURCEA (003)
 #define XINPUT_GETCAPABILITIES_ORDINAL    MAKEINTRESOURCEA (004)

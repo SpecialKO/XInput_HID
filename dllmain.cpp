@@ -5,28 +5,11 @@
 
 config_s config           = { };
 HMODULE  hModRealXInput14 =  0 ;
-
-volatile LONG s_Init = 0;
+HANDLE   __SK_DLL_TeardownEvent;
 
 DWORD
 WINAPI
-XInput_HID_InitThread (LPVOID)
-{
-  hModRealXInput14 =
-    LoadLibraryW (config.wszPathToSystemXInput1_4);
-
-  //while (true)
-  //{
-    void SK_HID_SetupPlayStationControllers (void);
-         SK_HID_SetupPlayStationControllers ();
-
-  //  SleepEx (5000UL, FALSE);
-  //}
-
-  WriteRelease (&s_Init, 2);
-
-  return 0;
-}
+XInput_HID_InitThread (LPVOID);
 
 BOOL
 APIENTRY
@@ -38,6 +21,9 @@ DllMain ( HMODULE hModule,
   {
     case DLL_PROCESS_ATTACH:
     {
+      __SK_DLL_TeardownEvent =
+        CreateEventW (nullptr, TRUE, FALSE, nullptr);
+
 #ifdef _M_IX86
       GetSystemWow64DirectoryW (config.wszPathToSystemXInput1_4,   MAX_PATH);
 #else
@@ -45,19 +31,16 @@ DllMain ( HMODULE hModule,
 #endif
       PathAppendW              (config.wszPathToSystemXInput1_4,   L"XInput1_4.dll");
 
-      if (! InterlockedCompareExchange (&s_Init, true, false))
-      {
 #if 1
-        XInput_HID_InitThread (nullptr);
+      XInput_HID_InitThread (nullptr);
 #else
-        CloseHandle (
-          CreateThread ( nullptr, 0x0, XInput_HID_InitThread,
-                         nullptr, 0x0, nullptr )
-        );
+      CloseHandle (
+        CreateThread ( nullptr, 0x0, XInput_HID_InitThread,
+                       nullptr, 0x0, nullptr )
+      );
 #endif
-      }
 
-      DisableThreadLibraryCalls (hModule);
+      //DisableThreadLibraryCalls (hModule);
     } break;
 
     case DLL_THREAD_ATTACH:
@@ -65,10 +48,11 @@ DllMain ( HMODULE hModule,
       break;
 
     case DLL_PROCESS_DETACH:
-      while (ReadAcquire (&s_Init) == 1)
+      while (hModRealXInput14 == nullptr)
         Sleep (1);
 
-      FreeLibrary (hModRealXInput14);
+      if (           hModRealXInput14 != (HMODULE)-1)
+        FreeLibrary (hModRealXInput14);
       break;
   }
 
