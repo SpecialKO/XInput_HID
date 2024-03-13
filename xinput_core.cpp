@@ -21,7 +21,7 @@ XInputGetKeystroke_pfn              _XInputGetKeystroke              = nullptr;
 XInputGetAudioDeviceIds_pfn         _XInputGetAudioDeviceIds         = nullptr;
 XInputGetDSoundAudioDeviceGuids_pfn _XInputGetDSoundAudioDeviceGuids = nullptr;
 
-void SK_HID_SetupPlayStationControllers (void)
+void SK_HID_SetupCompatibleControllers (void)
 {
   HDEVINFO hid_device_set = 
     SetupDiGetClassDevsW (&GUID_DEVINTERFACE_HID, nullptr, nullptr, DIGCF_DEVICEINTERFACE |
@@ -109,6 +109,9 @@ void SK_HID_SetupPlayStationControllers (void)
         bool bSONY = 
           hidAttribs.VendorID == 0x54c;
 
+        bool bNintendo =
+          hidAttribs.VendorID == 0x57e;
+
         if (bSONY)
         {
           hid_device_file_s controller;
@@ -127,18 +130,64 @@ void SK_HID_SetupPlayStationControllers (void)
             // DualSense
             case 0x0DF2:
             case 0x0CE6:
-              extern bool SK_DualSense_GetInputReport (void *pGenericDev);
-              controller.get_input_report = SK_DualSense_GetInputReport;
+              controller.get_input_report =
+                controller.bWireless ? SK_DualSense_GetInputReportBt :
+                                       SK_DualSense_GetInputReportUSB;
               break;
 
             // DualShock 4
             case 0x05C4:
             case 0x09CC:
             case 0x0BA0:
+              controller.get_input_report =
+                controller.bWireless ? SK_DualShock4_GetInputReportBt :
+                                       SK_DualShock4_GetInputReportUSB;
               break;
 
             // DualShock 3
             case 0x0268:
+              break;
+
+            default:
+              CloseHandle (hDeviceFile);
+              continue;
+              break;
+          }
+  
+          wcsncpy_s (controller.wszDevicePath, MAX_PATH,
+                                wszFileName,   _TRUNCATE);
+
+          controller.hDeviceFile =
+                     hDeviceFile;
+  
+          if (controller.hDeviceFile != INVALID_HANDLE_VALUE)
+          {
+            controller.bConnected = true;
+  
+            hid_devices.push_back (controller);
+          }
+        }
+
+        if (bNintendo)
+        {
+          hid_device_file_s controller;
+
+          controller.devinfo.pid = hidAttribs.ProductID;
+          controller.devinfo.vid = hidAttribs.VendorID;
+
+          controller.bWireless =
+            StrStrIW (
+              wszFileName, //Bluetooth_Base_UUID
+                           L"{00001124-0000-1000-8000-00805f9b34fb}"
+            );
+
+          switch (controller.devinfo.pid)
+          {
+            // Switch Pro
+            case 0x2009:
+              controller.get_input_report =
+                controller.bWireless ? SK_SwitchPro_GetInputReportBt :
+                                       SK_SwitchPro_GetInputReportUSB;
               break;
 
             default:
@@ -196,7 +245,7 @@ XInput_HID_InitThread (LPVOID)
     _XInputGetCapabilitiesEx         = (XInputGetCapabilitiesEx_pfn)        GetProcAddress (hMod, XINPUT_GETCAPABILITIES_EX_ORDINAL);
     _XInputPowerOff                  = (XInputPowerOff_pfn)                 GetProcAddress (hMod, XINPUT_POWEROFF_ORDINAL);
 
-    SK_HID_SetupPlayStationControllers ();
+    SK_HID_SetupCompatibleControllers ();
   }
 
   else
@@ -226,7 +275,7 @@ XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
   {
     if (hid_devices.empty ())
     {
-      SK_HID_SetupPlayStationControllers ();
+      SK_HID_SetupCompatibleControllers ();
     }
 
     for ( auto& controller : hid_devices )
@@ -313,7 +362,7 @@ XInputGetCapabilities (
   {
     if (hid_devices.empty ())
     {
-      SK_HID_SetupPlayStationControllers ();
+      SK_HID_SetupCompatibleControllers ();
     }
 
     for ( auto& controller : hid_devices )
@@ -354,7 +403,7 @@ XInputGetCapabilitiesEx (
   {
     if (hid_devices.empty ())
     {
-      SK_HID_SetupPlayStationControllers ();
+      SK_HID_SetupCompatibleControllers ();
     }
 
     for ( auto& controller : hid_devices )

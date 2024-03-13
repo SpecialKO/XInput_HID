@@ -13,6 +13,9 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Source Files\HID Devices">
+      <UniqueIdentifier>{1a5604ea-01eb-491f-9674-259258a98ad9}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="framework.h">
@@ -22,6 +25,15 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="hid_device.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="xinput_defs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="bluetooth.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -35,8 +47,17 @@
     <ClCompile Include="xinput_core.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="dualsense.cpp">
+    <ClCompile Include="bluetooth.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="dualshock4.cpp">
+      <Filter>Source Files\HID Devices</Filter>
+    </ClCompile>
+    <ClCompile Include="dualsense.cpp">
+      <Filter>Source Files\HID Devices</Filter>
+    </ClCompile>
+    <ClCompile Include="switch_pro.cpp">
+      <Filter>Source Files\HID Devices</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
