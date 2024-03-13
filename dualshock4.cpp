@@ -304,13 +304,13 @@ SK_DualShock4_GetInputReportUSB (void *pGenericDev)
 
     if (! SK_XInput_UpdatePolledDataAndTimestamp (
                pDevice, (
-               pDevice->state.current.Gamepad.wButtons     !=    0 ||
-      ( ( abs (pDevice->state.current.Gamepad.sThumbLX)     > 5000 ||
-          abs (pDevice->state.current.Gamepad.sThumbLY)     > 5000 ||
-          abs (pDevice->state.current.Gamepad.sThumbRX)     > 5000 ||
-          abs (pDevice->state.current.Gamepad.sThumbRY)     > 5000 ||
-               pDevice->state.current.Gamepad.bLeftTrigger  >   30 ||
-               pDevice->state.current.Gamepad.bRightTrigger >   30 ) )
+               pDevice->state.current.Gamepad.wButtons     != 0                                   ||
+      ( ( abs (pDevice->state.current.Gamepad.sThumbLX)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE  ||
+          abs (pDevice->state.current.Gamepad.sThumbLY)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE  ||
+          abs (pDevice->state.current.Gamepad.sThumbRX)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE ||
+          abs (pDevice->state.current.Gamepad.sThumbRY)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE ||
+               pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD    ||
+               pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD ) )
                         ), bNewData          )
          )
       {
@@ -446,15 +446,15 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
       if (pData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
       if (! SK_XInput_UpdatePolledDataAndTimestamp (
-                 pDevice, (
-                 pDevice->state.current.Gamepad.wButtons     !=    0 ||
-        ( ( abs (pDevice->state.current.Gamepad.sThumbLX)     > 5000 ||
-            abs (pDevice->state.current.Gamepad.sThumbLY)     > 5000 ||
-            abs (pDevice->state.current.Gamepad.sThumbRX)     > 5000 ||
-            abs (pDevice->state.current.Gamepad.sThumbRY)     > 5000 ||
-                 pDevice->state.current.Gamepad.bLeftTrigger  >   30 ||
-                 pDevice->state.current.Gamepad.bRightTrigger >   30 ) )
-                          ), bNewData          )
+               pDevice, (
+               pDevice->state.current.Gamepad.wButtons     !=                                  0  ||
+      ( ( abs (pDevice->state.current.Gamepad.sThumbLX)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE  ||
+          abs (pDevice->state.current.Gamepad.sThumbLY)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE  ||
+          abs (pDevice->state.current.Gamepad.sThumbRX)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE ||
+          abs (pDevice->state.current.Gamepad.sThumbRY)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE ||
+               pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD    ||
+               pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD ) )
+                        ), bNewData                )
          )
       {
         return false;
@@ -542,15 +542,15 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
       if (pSimpleData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
       if (! SK_XInput_UpdatePolledDataAndTimestamp (
-                 pDevice, (
-                 pDevice->state.current.Gamepad.wButtons     !=    0 ||
-        ( ( abs (pDevice->state.current.Gamepad.sThumbLX)     > 5000 ||
-            abs (pDevice->state.current.Gamepad.sThumbLY)     > 5000 ||
-            abs (pDevice->state.current.Gamepad.sThumbRX)     > 5000 ||
-            abs (pDevice->state.current.Gamepad.sThumbRY)     > 5000 ||
-                 pDevice->state.current.Gamepad.bLeftTrigger  >   30 ||
-                 pDevice->state.current.Gamepad.bRightTrigger >   30 ) )
-                          ), bNewData          )
+                     pDevice, (
+                     pDevice->state.current.Gamepad.wButtons     !=                                  0  ||
+            ( ( abs (pDevice->state.current.Gamepad.sThumbLX)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE  ||
+                abs (pDevice->state.current.Gamepad.sThumbLY)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE  ||
+                abs (pDevice->state.current.Gamepad.sThumbRX)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE ||
+                abs (pDevice->state.current.Gamepad.sThumbRY)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE ||
+                     pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD    ||
+                     pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD ) )
+                              ), bNewData          )
          )
       {
         return false;
