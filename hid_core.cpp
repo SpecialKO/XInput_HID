@@ -52,7 +52,7 @@ SK_HID_InputReportThread (LPVOID user)
         if ( _PollInput ==
                WaitForSingleObject (pDevice->threads.input.hDataRequest, 0) )
         {
-          SleepEx (2, TRUE);
+          YieldProcessor ();
         }
       }
     }

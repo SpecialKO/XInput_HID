@@ -165,7 +165,9 @@ SK_SwitchPro_GetInputReportUSB (void *pGenericDev)
     if (pData->ButtonHome   != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
     if (! SK_XInput_UpdatePolledDataAndTimestamp ( pDevice,
-                                                   pDevice->state.current.Gamepad.wButtons != 0,
+                                                   pDevice->state.current.Gamepad.wButtons != 0 ||
+                                                   pDevice->state.current.Gamepad.wButtons !=
+                                                   pDevice->state.prev.Gamepad.wButtons,
                                                    bNewData ) )
     {
       return false;
@@ -281,7 +283,9 @@ SK_SwitchPro_GetInputReportBt (void *pGenericDev)
     if (pData->ButtonHome   != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
     if (! SK_XInput_UpdatePolledDataAndTimestamp ( pDevice,
-                                                   pDevice->state.current.Gamepad.wButtons != 0,
+                                                   pDevice->state.current.Gamepad.wButtons != 0 ||
+                                                   pDevice->state.current.Gamepad.wButtons !=
+                                                   pDevice->state.prev.Gamepad.wButtons,
                                                    bNewData ) )
     {
       return false;

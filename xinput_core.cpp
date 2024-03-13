@@ -6,6 +6,9 @@
 #include <atlbase.h>
 #include <mmsystem.h>
 
+#include <vector>
+#include <algorithm>
+
 #pragma comment (lib, "winmm.lib")
 
 bool _GetInputReportStub (void*) { return false; }
@@ -698,24 +701,52 @@ XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
 
     *pState = {};
 
+    std::vector <std::pair <hid_device_file_s*, DWORD>> connected_devices;
+
     for ( auto& controller : hid_devices )
     {
       if (controller.bConnected)
       {
         if (controller.GetInputReport ())
         {
-          pState->Gamepad.bLeftTrigger  = controller.state.current.Gamepad.bLeftTrigger;
-          pState->Gamepad.bRightTrigger = controller.state.current.Gamepad.bRightTrigger;
-          pState->Gamepad.sThumbLX      = controller.state.current.Gamepad.sThumbLX;
-          pState->Gamepad.sThumbLY      = controller.state.current.Gamepad.sThumbLY;
-          pState->Gamepad.sThumbRX      = controller.state.current.Gamepad.sThumbRX;
-          pState->Gamepad.sThumbRY      = controller.state.current.Gamepad.sThumbRY;
-          pState->Gamepad.wButtons      = controller.state.current.Gamepad.wButtons;
-          pState->dwPacketNumber        = controller.state.current.dwPacketNumber;
+          connected_devices.push_back (
+            std::make_pair (&controller, controller.state.input_timestamp)
+          );
         }
 
         bSuccess = true;
       }
+    }
+
+    hid_device_file_s* pNewestDevice = nullptr;
+
+    for ( auto& dev : connected_devices )
+    {
+      if (pNewestDevice == nullptr)
+          pNewestDevice = dev.first;
+
+      if (dev.second > pNewestDevice->state.input_timestamp)
+      {
+        pNewestDevice = dev.first;
+      }
+    }
+
+    if (pNewestDevice != nullptr)
+    {
+      pState->Gamepad.bLeftTrigger  = pNewestDevice->state.current.Gamepad.bLeftTrigger;
+      pState->Gamepad.bRightTrigger = pNewestDevice->state.current.Gamepad.bRightTrigger;
+      pState->Gamepad.sThumbLX      = pNewestDevice->state.current.Gamepad.sThumbLX;
+      pState->Gamepad.sThumbLY      = pNewestDevice->state.current.Gamepad.sThumbLY;
+      pState->Gamepad.sThumbRX      = pNewestDevice->state.current.Gamepad.sThumbRX;
+      pState->Gamepad.sThumbRY      = pNewestDevice->state.current.Gamepad.sThumbRY;
+      pState->Gamepad.wButtons      = pNewestDevice->state.current.Gamepad.wButtons;
+      pState->dwPacketNumber        = pNewestDevice->state.current.dwPacketNumber;
+
+      // Give most recently active device a +75 ms advantage,
+      //   we may have the same device connected over two
+      //     protocols and do not want repeats of the same
+      //       input...
+      pNewestDevice->state.input_timestamp += 75;
     }
 
     if (bSuccess)
@@ -758,24 +789,46 @@ XInputGetStateEx (DWORD dwUserIndex, XINPUT_STATE_EX *pState)
 
     *pState = {};
 
+    std::vector <std::pair <hid_device_file_s*, DWORD>> connected_devices;
+
     for ( auto& controller : hid_devices )
     {
       if (controller.bConnected)
       {
         if (controller.GetInputReport ())
         {
-          pState->Gamepad.bLeftTrigger  = controller.state.current.Gamepad.bLeftTrigger;
-          pState->Gamepad.bRightTrigger = controller.state.current.Gamepad.bRightTrigger;
-          pState->Gamepad.sThumbLX      = controller.state.current.Gamepad.sThumbLX;
-          pState->Gamepad.sThumbLY      = controller.state.current.Gamepad.sThumbLY;
-          pState->Gamepad.sThumbRX      = controller.state.current.Gamepad.sThumbRX;
-          pState->Gamepad.sThumbRY      = controller.state.current.Gamepad.sThumbRY;
-          pState->Gamepad.wButtons      = controller.state.current.Gamepad.wButtons;
-          pState->dwPacketNumber        = controller.state.current.dwPacketNumber;
+          connected_devices.push_back (
+            std::make_pair (&controller, controller.state.input_timestamp)
+          );
         }
 
         bSuccess = true;
       }
+    }
+
+    hid_device_file_s* pNewestDevice = nullptr;
+
+    for ( auto& dev : connected_devices )
+    {
+      if (pNewestDevice == nullptr)
+          pNewestDevice = dev.first;
+
+      if (dev.second > pNewestDevice->state.input_timestamp)
+      {
+        pNewestDevice = dev.first;
+      }
+    }
+
+    if (pNewestDevice != nullptr)
+    {
+      pState->Gamepad.bLeftTrigger  = pNewestDevice->state.current.Gamepad.bLeftTrigger;
+      pState->Gamepad.bRightTrigger = pNewestDevice->state.current.Gamepad.bRightTrigger;
+      pState->Gamepad.sThumbLX      = pNewestDevice->state.current.Gamepad.sThumbLX;
+      pState->Gamepad.sThumbLY      = pNewestDevice->state.current.Gamepad.sThumbLY;
+      pState->Gamepad.sThumbRX      = pNewestDevice->state.current.Gamepad.sThumbRX;
+      pState->Gamepad.sThumbRY      = pNewestDevice->state.current.Gamepad.sThumbRY;
+      pState->Gamepad.wButtons      = pNewestDevice->state.current.Gamepad.wButtons;
+      pState->dwPacketNumber        = pNewestDevice->state.current.dwPacketNumber;
     }
 
     if (bSuccess)
