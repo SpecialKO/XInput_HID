@@ -26,6 +26,9 @@ XInputGetKeystroke_pfn              _XInputGetKeystroke              = nullptr;
 XInputGetAudioDeviceIds_pfn         _XInputGetAudioDeviceIds         = nullptr;
 XInputGetDSoundAudioDeviceGuids_pfn _XInputGetDSoundAudioDeviceGuids = nullptr;
 
+BOOL SK_XInput_SlotStatus [4] =
+ { TRUE, TRUE, TRUE, TRUE };
+
 void SK_HID_SetupCompatibleControllers (void);
 
 void
@@ -106,6 +109,11 @@ SK_XInput_NotifyDeviceArrival (void)
 
                   if (arrival)
                   {
+                    SK_XInput_SlotStatus [0] = true;
+                    SK_XInput_SlotStatus [1] = true;
+                    SK_XInput_SlotStatus [2] = true;
+                    SK_XInput_SlotStatus [3] = true;
+
                     if (playstation)
                     {
                       bool has_existing = false;
@@ -645,8 +653,11 @@ XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
 
   DWORD dwState;
 
-  dwState =
-    _XInputGetState (dwUserIndex, pState);
+  dwState = SK_XInput_SlotStatus [dwUserIndex] ?
+    _XInputGetState (dwUserIndex, pState)      : ERROR_DEVICE_NOT_CONNECTED;
+
+  if (SK_XInput_SlotStatus [dwUserIndex] && dwState == ERROR_DEVICE_NOT_CONNECTED)
+      SK_XInput_SlotStatus [dwUserIndex] = false;
 
   if (dwState == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex == 0)
   {
@@ -690,8 +701,11 @@ XInputGetStateEx (DWORD dwUserIndex, XINPUT_STATE_EX *pState)
   while (hModRealXInput14 == nullptr)
     ;
 
-  DWORD dwState =
-    _XInputGetStateEx (dwUserIndex, pState);
+  DWORD dwState = SK_XInput_SlotStatus [dwUserIndex] ?
+    _XInputGetStateEx (dwUserIndex, pState)          : ERROR_DEVICE_NOT_CONNECTED;
+
+  if (SK_XInput_SlotStatus [dwUserIndex] && dwState == ERROR_DEVICE_NOT_CONNECTED)
+      SK_XInput_SlotStatus [dwUserIndex] = false;
 
   if (dwState == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex == 0)
   {
@@ -751,8 +765,11 @@ XInputGetCapabilities (
   while (hModRealXInput14 == nullptr)
     ;
 
-  DWORD dwResult =
-    _XInputGetCapabilities (dwUserIndex, dwFlags, pCapabilities);
+  DWORD dwResult = SK_XInput_SlotStatus [dwUserIndex]            ?
+    _XInputGetCapabilities (dwUserIndex, dwFlags, pCapabilities) : ERROR_DEVICE_NOT_CONNECTED;
+
+  if (SK_XInput_SlotStatus [dwUserIndex] && dwResult == ERROR_DEVICE_NOT_CONNECTED)
+      SK_XInput_SlotStatus [dwUserIndex] = false;
 
   if (dwResult == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex == 0)
   {
@@ -787,8 +804,11 @@ XInputGetCapabilitiesEx (
   while (hModRealXInput14 == nullptr)
     ;
 
-  DWORD dwResult =
-    _XInputGetCapabilitiesEx (dwReserved, dwUserIndex, dwFlags, pCapabilitiesEx);
+  DWORD dwResult = SK_XInput_SlotStatus [dwUserIndex]                            ?
+    _XInputGetCapabilitiesEx (dwReserved, dwUserIndex, dwFlags, pCapabilitiesEx) : ERROR_DEVICE_NOT_CONNECTED;
+
+  if (SK_XInput_SlotStatus [dwUserIndex] && dwResult == ERROR_DEVICE_NOT_CONNECTED)
+      SK_XInput_SlotStatus [dwUserIndex] = false;
 
   if (dwResult == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex == 0)
   {
