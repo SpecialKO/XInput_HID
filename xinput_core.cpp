@@ -4,8 +4,11 @@
 #include <windef.h>
 #include <Dbt.h>
 #include <atlbase.h>
+#include <mmsystem.h>
 
-bool _GetInputReportStub (void* pDevice) { return false; }
+#pragma comment (lib, "winmm.lib")
+
+bool _GetInputReportStub (void*) { return false; }
 
 concurrency::concurrent_vector <hid_device_file_s> hid_devices;
 
@@ -34,11 +37,11 @@ SK_XInput_NotifyDeviceArrival (void)
   if (std::exchange (s_Once, true))
     return;
 
-  CreateThread (nullptr, 0x0, [](LPVOID user)->
+  CreateThread (nullptr, 0x0, [](LPVOID/*user*/)->
   DWORD
   {
-    HANDLE hNotify =
-      (HANDLE)user;
+    //HANDLE hNotify =
+    //  (HANDLE)user;
 
     HANDLE* phWaitObjects = nullptr;//[] = {
       //hNotify, __SK_DLL_TeardownEvent
@@ -80,11 +83,11 @@ SK_XInput_NotifyDeviceArrival (void)
                                                  FILE_SHARE_READ   | FILE_SHARE_WRITE,
                                                    nullptr, OPEN_EXISTING, 0x0, nullptr )
                                       );
-                  
+
                   HIDD_ATTRIBUTES hidAttribs      = {                      };
                                   hidAttribs.Size = sizeof (HIDD_ATTRIBUTES);
 
-                  if (hDeviceFile.m_h != INVALID_HANDLE_VALUE)
+                  if ((intptr_t)hDeviceFile.m_h > 0)
                   {
                     HidD_GetAttributes (hDeviceFile.m_h, &hidAttribs);
 
@@ -111,18 +114,26 @@ SK_XInput_NotifyDeviceArrival (void)
                       {
                         if (! _wcsicmp (controller.wszDevicePath, wszFileName))
                         {
-                          controller.hDeviceFile =
+                          if (controller.bConnected || (intptr_t)controller.hDeviceFile > 0)
+                          {
+                            controller.disconnect ();
+                          }
+
+                          if ((intptr_t)hDeviceFile.m_h > 0)
+                                        hDeviceFile.Close ();
+
+                          hDeviceFile.m_h =
                             CreateFileW ( wszFileName, FILE_GENERIC_READ | FILE_GENERIC_WRITE,
                                                        FILE_SHARE_READ   | FILE_SHARE_WRITE,
                                                          nullptr, OPEN_EXISTING, 0x0, nullptr );
 
-                          if (controller.hDeviceFile != INVALID_HANDLE_VALUE)
+                          if ((intptr_t)hDeviceFile.m_h > 0)
                           {
                             //if (HidD_GetPreparsedData (controller.hDeviceFile, &controller.pPreparsedData))
                             {
-                              controller.bConnected = true;
-                              controller.bWireless  =  //Bluetooth_Base_UUID
+                              controller.bWireless =   //Bluetooth_Base_UUID
                                 StrStrIW (wszFileName, L"{00001124-0000-1000-8000-00805f9b34fb}");
+                              controller.reconnect (hDeviceFile.Detach ());
 
                               has_existing = true;
 
@@ -292,11 +303,9 @@ SK_XInput_NotifyDeviceArrival (void)
                       {
                         if (! _wcsicmp (controller.wszDevicePath, wszFileName))
                         {
-                          controller.bConnected = false;
-                        //controller.reset_rgb  = false;
+                          controller.disconnect ();
 
-                          if (                (intptr_t)controller.hDeviceFile > 0)
-                            CloseHandle (std::exchange (controller.hDeviceFile,  nullptr));
+                        //controller.reset_rgb  = false;
 
                           //if (controller.pPreparsedData != nullptr)
                           //    HidD_FreePreparsedData (
@@ -448,12 +457,15 @@ void SK_HID_SetupCompatibleControllers (void)
 
         for ( auto& existing : hid_devices )
         {
-          if (StrStrIW (existing.wszDevicePath, wszFileName))
+          if (existing.bConnected && StrStrIW (existing.wszDevicePath, wszFileName))
           {
             bSkip = true;
             break;
           }
         }
+
+        if (bSkip)
+          continue;
 
         HANDLE hDeviceFile (
                CreateFileW ( wszFileName, FILE_GENERIC_READ | FILE_GENERIC_WRITE,
@@ -463,7 +475,7 @@ void SK_HID_SetupCompatibleControllers (void)
                                                                     FILE_FLAG_OVERLAPPED*/0x0, nullptr )
                            );
 
-        if (hDeviceFile == INVALID_HANDLE_VALUE)
+        if ((intptr_t)hDeviceFile <= 0)
         {
           continue;
         }
@@ -516,7 +528,7 @@ void SK_HID_SetupCompatibleControllers (void)
               break;
 
             default:
-              CloseHandle (hDeviceFile);
+              CloseHandle (std::exchange (hDeviceFile, INVALID_HANDLE_VALUE));
               continue;
               break;
           }
@@ -524,14 +536,13 @@ void SK_HID_SetupCompatibleControllers (void)
           wcsncpy_s (controller.wszDevicePath, MAX_PATH,
                                 wszFileName,   _TRUNCATE);
 
-          controller.hDeviceFile =
-                     hDeviceFile;
-  
-          if (controller.hDeviceFile != INVALID_HANDLE_VALUE)
+          if ( (intptr_t)controller.hDeviceFile > 0 ||
+               (intptr_t)hDeviceFile            > 0 )
           {
-            controller.bConnected = true;
-  
-            hid_devices.push_back (controller);
+            auto iter =
+              hid_devices.push_back (controller);
+
+            iter->reconnect (hDeviceFile);
           }
         }
 
@@ -566,14 +577,13 @@ void SK_HID_SetupCompatibleControllers (void)
           wcsncpy_s (controller.wszDevicePath, MAX_PATH,
                                 wszFileName,   _TRUNCATE);
 
-          controller.hDeviceFile =
-                     hDeviceFile;
-  
-          if (controller.hDeviceFile != INVALID_HANDLE_VALUE)
+          if ( (intptr_t)controller.hDeviceFile > 0 ||
+               (intptr_t)hDeviceFile            > 0 )
           {
-            controller.bConnected = true;
-  
-            hid_devices.push_back (controller);
+            auto iter =
+              hid_devices.push_back (controller);
+
+            iter->reconnect (hDeviceFile);
           }
         }
       }
@@ -640,11 +650,6 @@ XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
 
   if (dwState == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex == 0)
   {
-    if (hid_devices.empty ())
-    {
-      SK_HID_SetupCompatibleControllers ();
-    }
-
     bool bSuccess = false;
 
     *pState = {};
@@ -690,20 +695,32 @@ XInputGetStateEx (DWORD dwUserIndex, XINPUT_STATE_EX *pState)
 
   if (dwState == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex == 0)
   {
+    bool bSuccess = false;
+
+    *pState = {};
+
     for ( auto& controller : hid_devices )
     {
       if (controller.bConnected)
       {
         if (controller.GetInputReport ())
         {
-          memcpy (pState, &controller.state.current, sizeof (XINPUT_STATE));
-
-          return ERROR_SUCCESS;
+          pState->Gamepad.bLeftTrigger  = controller.state.current.Gamepad.bLeftTrigger;
+          pState->Gamepad.bRightTrigger = controller.state.current.Gamepad.bRightTrigger;
+          pState->Gamepad.sThumbLX      = controller.state.current.Gamepad.sThumbLX;
+          pState->Gamepad.sThumbLY      = controller.state.current.Gamepad.sThumbLY;
+          pState->Gamepad.sThumbRX      = controller.state.current.Gamepad.sThumbRX;
+          pState->Gamepad.sThumbRY      = controller.state.current.Gamepad.sThumbRY;
+          pState->Gamepad.wButtons      = controller.state.current.Gamepad.wButtons;
+          pState->dwPacketNumber        = controller.state.current.dwPacketNumber;
         }
 
-        return ERROR_SUCCESS;
+        bSuccess = true;
       }
     }
+
+    if (bSuccess)
+      return ERROR_SUCCESS;
   }
 
   return dwState;
@@ -739,11 +756,6 @@ XInputGetCapabilities (
 
   if (dwResult == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex == 0)
   {
-    if (hid_devices.empty ())
-    {
-      SK_HID_SetupCompatibleControllers ();
-    }
-
     for ( auto& controller : hid_devices )
     {
       if (controller.bConnected)
@@ -780,11 +792,6 @@ XInputGetCapabilitiesEx (
 
   if (dwResult == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex == 0)
   {
-    if (hid_devices.empty ())
-    {
-      SK_HID_SetupCompatibleControllers ();
-    }
-
     for ( auto& controller : hid_devices )
     {
       if (controller.bConnected)
@@ -883,4 +890,39 @@ XInputEnable (
 
   return
     _XInputEnable (enable);
+}
+
+bool
+SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive, bool& bNewData)
+{
+  const DWORD
+    dwTimeInMs =
+      timeGetTime (),
+    dwTimeoutInMs = (1000 * config.dwIdleTimeoutInSeconds);
+
+  if (bActive)
+  {
+    pDevice->state.prev =
+    pDevice->state.current;
+    pDevice->state.current.dwPacketNumber++;
+
+    pDevice->state.input_timestamp = dwTimeInMs;
+
+    bNewData = true;
+  }
+
+  else if ( pDevice->state.input_timestamp != 0  &&
+              config.dwIdleTimeoutInSeconds > 30 &&
+                             dwTimeoutInMs < dwTimeInMs ) // Ignore invalid timeout values
+  {
+    if (pDevice->state.input_timestamp < (dwTimeInMs - dwTimeoutInMs))
+    {
+      if (SK_Bluetooth_PowerOffGamepad (pDevice))
+      {
+        return false;
+      }
+    }
+  }
+
+  return true;
 }

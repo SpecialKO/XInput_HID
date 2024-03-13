@@ -51,10 +51,10 @@ void CalcAnalogStick2
 (
   float &pOutX,       // out: resulting stick X value
   float &pOutY,       // out: resulting stick Y value
-  uint16_t x,              // in: initial stick X value
-  uint16_t y,              // in: initial stick Y value
-  uint16_t x_calc [3],     // calc -X, CenterX, +X
-  uint16_t y_calc [3]      // calc -Y, CenterY, +Y
+  int16_t x,              // in: initial stick X value
+  int16_t y,              // in: initial stick Y value
+  int16_t x_calc [3],     // calc -X, CenterX, +X
+  int16_t y_calc [3]      // calc -Y, CenterY, +Y
 )
 {
   float x_f, y_f;
@@ -115,17 +115,17 @@ SK_SwitchPro_GetInputReportUSB (void *pGenericDev)
       static_cast <BYTE> (pData->ButtonZR * 255);
 
     uint8_t* pStickData = pData->LeftAnalog;
-    uint16_t LeftStickX =  pStickData [0]       | ((pStickData [1] & 0xF) << 8);
-    uint16_t LeftStickY = (pStickData [1] >> 4) |  (pStickData [2]        << 4);
+    int16_t  LeftStickX =  pStickData [0]       | ((pStickData [1] & 0xF) << 8);
+    int16_t  LeftStickY = (pStickData [1] >> 4) |  (pStickData [2]        << 4);
 
-             pStickData  = pData->RightAnalog;
-    uint16_t RightStickX =  pStickData [0]       | ((pStickData [1] & 0xF) << 8);
-    uint16_t RightStickY = (pStickData [1] >> 4) |  (pStickData [2]        << 4);
+             pStickData = pData->RightAnalog;
+    int16_t RightStickX =  pStickData [0]       | ((pStickData [1] & 0xF) << 8);
+    int16_t RightStickY = (pStickData [1] >> 4) |  (pStickData [2]        << 4);
 
     float fLeftStickX,  fLeftStickY;
     float fRightStickX, fRightStickY;
 
-    uint16_t calibrated_ranges [3] = { -32768, 0, 32767 };
+    int16_t calibrated_ranges [3] = { -32768, 0, 32767 };
 
     CalcAnalogStick2 (fLeftStickX, fLeftStickY, LeftStickX, LeftStickY, calibrated_ranges,
                                                                         calibrated_ranges );
@@ -164,19 +164,11 @@ SK_SwitchPro_GetInputReportUSB (void *pGenericDev)
 
     if (pData->ButtonHome   != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
-    //if (memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)))
-    if (pDevice->state.current.Gamepad.wButtons)/// ||
-               //( ( abs (pDevice->state.current.Gamepad.sThumbLX) > 5000 ||
-               //    abs (pDevice->state.current.Gamepad.sThumbLY) > 5000 ||
-               //    abs (pDevice->state.current.Gamepad.sThumbRX) > 5000 ||
-               //    abs (pDevice->state.current.Gamepad.sThumbRY) > 5000 ||
-               //         pDevice->state.current.Gamepad.bLeftTrigger  > 30 ||
-               //         pDevice->state.current.Gamepad.bRightTrigger > 30 ) && memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)) ))
+    if (! SK_XInput_UpdatePolledDataAndTimestamp ( pDevice,
+                                                   pDevice->state.current.Gamepad.wButtons != 0,
+                                                   bNewData ) )
     {
-      pDevice->state.prev = pDevice->state.current;
-      pDevice->state.current.dwPacketNumber++;
-
-      bNewData = true;
+      return false;
     }
 
 #if 0
@@ -195,25 +187,14 @@ SK_SwitchPro_GetInputReportUSB (void *pGenericDev)
     if (dwLastErr == ERROR_DEVICE_NOT_CONNECTED ||
         dwLastErr == ERROR_INVALID_HANDLE)
     {
-      if (dwLastErr != ERROR_INVALID_HANDLE)
-        CloseHandle (std::exchange (pDevice->hDeviceFile, INVALID_HANDLE_VALUE));
-
-      pDevice->hDeviceFile =
-               CreateFileW ( pDevice->wszDevicePath,
-                               FILE_GENERIC_READ | FILE_GENERIC_WRITE,
-                               FILE_SHARE_READ   | FILE_SHARE_WRITE,
-                                 nullptr, OPEN_EXISTING, 0x0, nullptr );
-
-      if (pDevice->hDeviceFile == INVALID_HANDLE_VALUE)
-        pDevice->bConnected = false;
+      pDevice->disconnect ();
 
       return false;
     }
 
-    if (dwLastErr == ERROR_INVALID_USER_BUFFER ||
-        dwLastErr == ERROR_INVALID_PARAMETER)
+    if (dwLastErr == ERROR_INVALID_USER_BUFFER)
     {
-      pDevice->bConnected = false;
+      pDevice->disconnect ();
 
       return false;
     }
@@ -258,6 +239,7 @@ SK_SwitchPro_GetInputReportBt (void *pGenericDev)
     pDevice->state.current.Gamepad.bRightTrigger =
       static_cast <BYTE> (pData->ButtonZR * 255);
 
+#if 0
     uint8_t* pStickData = pData->LeftAnalog;
     uint16_t LeftStickX =  pStickData [0]       | ((pStickData [1] & 0xF) << 8);
     uint16_t LeftStickY = (pStickData [1] >> 4) |  (pStickData [2]        << 4);
@@ -265,6 +247,7 @@ SK_SwitchPro_GetInputReportBt (void *pGenericDev)
              pStickData  = pData->RightAnalog;
     uint16_t RightStickX =  pStickData [0]       | ((pStickData [1] & 0xF) << 8);
     uint16_t RightStickY = (pStickData [1] >> 4) |  (pStickData [2]        << 4);
+#endif
 
     pDevice->state.current.Gamepad.sThumbLX = 0;
       //static_cast <SHORT> (32767.0 * static_cast <double> (        static_cast <LONG> (LeftStickX ) - 32768) / 32768.0);
@@ -297,18 +280,11 @@ SK_SwitchPro_GetInputReportBt (void *pGenericDev)
 
     if (pData->ButtonHome   != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
-    if (pDevice->state.current.Gamepad.wButtons)
-               //( ( abs (pDevice->state.current.Gamepad.sThumbLX) > 5000 ||
-               //    abs (pDevice->state.current.Gamepad.sThumbLY) > 5000 ||
-               //    abs (pDevice->state.current.Gamepad.sThumbRX) > 5000 ||
-               //    abs (pDevice->state.current.Gamepad.sThumbRY) > 5000 ||
-               //         pDevice->state.current.Gamepad.bLeftTrigger  > 30 ||
-               //         pDevice->state.current.Gamepad.bRightTrigger > 30 ) && memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)) ))
+    if (! SK_XInput_UpdatePolledDataAndTimestamp ( pDevice,
+                                                   pDevice->state.current.Gamepad.wButtons != 0,
+                                                   bNewData ) )
     {
-      pDevice->state.prev = pDevice->state.current;
-      pDevice->state.current.dwPacketNumber++;
-
-      bNewData = true;
+      return false;
     }
 
 #if 0
@@ -316,13 +292,12 @@ SK_SwitchPro_GetInputReportBt (void *pGenericDev)
     pData->ButtonShare != 0;
 #endif
 
-    if ( (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_Y    ) != 0 &&
+    if (                                                              bNewData &&
+         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_Y    ) != 0 &&
          (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
     {
       if (SK_Bluetooth_PowerOffGamepad (pDevice))
       {
-        pDevice->bConnected = false;
-
         return false;
       }
     }
@@ -338,25 +313,14 @@ SK_SwitchPro_GetInputReportBt (void *pGenericDev)
     if (dwLastErr == ERROR_DEVICE_NOT_CONNECTED ||
         dwLastErr == ERROR_INVALID_HANDLE)
     {
-      if (dwLastErr != ERROR_INVALID_HANDLE)
-        CloseHandle (std::exchange (pDevice->hDeviceFile, INVALID_HANDLE_VALUE));
-
-      pDevice->hDeviceFile =
-               CreateFileW ( pDevice->wszDevicePath,
-                               FILE_GENERIC_READ | FILE_GENERIC_WRITE,
-                               FILE_SHARE_READ   | FILE_SHARE_WRITE,
-                                 nullptr, OPEN_EXISTING, 0x0, nullptr );
-
-      if (pDevice->hDeviceFile == INVALID_HANDLE_VALUE)
-        pDevice->bConnected = false;
+      pDevice->disconnect ();
 
       return false;
     }
 
-    if (dwLastErr == ERROR_INVALID_USER_BUFFER ||
-        dwLastErr == ERROR_INVALID_PARAMETER)
+    if (dwLastErr == ERROR_INVALID_USER_BUFFER)
     {
-      pDevice->bConnected = false;
+      pDevice->disconnect ();
 
       return false;
     }

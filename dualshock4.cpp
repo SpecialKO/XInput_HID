@@ -1,9 +1,5 @@
 #include "pch.h"
 
-#include <windef.h>
-#include <cstdint>
-#include <string>
-
 enum Direction : uint8_t {
   North     = 0,
   NorthEast,
@@ -246,6 +242,7 @@ SK_DualShock4_GetInputReportUSB (void *pGenericDev)
   report [0] = 0x1;
 
   DWORD dwBytesRead = 0;
+  bool  bNewData    = false;
 
   if (ReadFile (pDevice->hDeviceFile, report, 2048, &dwBytesRead, nullptr))
   {
@@ -305,20 +302,27 @@ SK_DualShock4_GetInputReportUSB (void *pGenericDev)
 
     if (pData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
-    if (memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)))
-    {
-      pDevice->state.prev = pDevice->state.current;
-      pDevice->state.current.dwPacketNumber++;
-
-      return pDevice->bConnected;
-    }
+    if (! SK_XInput_UpdatePolledDataAndTimestamp (
+               pDevice, (
+               pDevice->state.current.Gamepad.wButtons     !=    0 ||
+      ( ( abs (pDevice->state.current.Gamepad.sThumbLX)     > 5000 ||
+          abs (pDevice->state.current.Gamepad.sThumbLY)     > 5000 ||
+          abs (pDevice->state.current.Gamepad.sThumbRX)     > 5000 ||
+          abs (pDevice->state.current.Gamepad.sThumbRY)     > 5000 ||
+               pDevice->state.current.Gamepad.bLeftTrigger  >   30 ||
+               pDevice->state.current.Gamepad.bRightTrigger >   30 ) )
+                        ), bNewData          )
+         )
+      {
+        return false;
+      }
 
 #if 0
     // Common to DualSense and DualShock4, but no representation in XInput
     pData->ButtonPad != 0;
 #endif
 
-    return false;
+    return bNewData;
   }
 
   else
@@ -329,25 +333,14 @@ SK_DualShock4_GetInputReportUSB (void *pGenericDev)
     if (dwLastErr == ERROR_DEVICE_NOT_CONNECTED ||
         dwLastErr == ERROR_INVALID_HANDLE)
     {
-      if (dwLastErr != ERROR_INVALID_HANDLE)
-        CloseHandle (std::exchange (pDevice->hDeviceFile, INVALID_HANDLE_VALUE));
-
-      pDevice->hDeviceFile =
-               CreateFileW ( pDevice->wszDevicePath,
-                               FILE_GENERIC_READ | FILE_GENERIC_WRITE,
-                               FILE_SHARE_READ   | FILE_SHARE_WRITE,
-                                 nullptr, OPEN_EXISTING, 0x0, nullptr );
-
-      if (pDevice->hDeviceFile == INVALID_HANDLE_VALUE)
-        pDevice->bConnected = false;
+      pDevice->disconnect ();
 
       return false;
     }
 
-    if (dwLastErr == ERROR_INVALID_USER_BUFFER ||
-        dwLastErr == ERROR_INVALID_PARAMETER)
+    if (dwLastErr == ERROR_INVALID_USER_BUFFER)
     {
-      pDevice->bConnected = false;
+      pDevice->disconnect ();
 
       return false;
     }
@@ -452,18 +445,19 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
 
       if (pData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
-      if (pDevice->state.current.Gamepad.wButtons ||
-           ( ( abs (pDevice->state.current.Gamepad.sThumbLX) > 5000 ||
-               abs (pDevice->state.current.Gamepad.sThumbLY) > 5000 ||
-               abs (pDevice->state.current.Gamepad.sThumbRX) > 5000 ||
-               abs (pDevice->state.current.Gamepad.sThumbRY) > 5000 ||
-                    pDevice->state.current.Gamepad.bLeftTrigger  > 30 ||
-                    pDevice->state.current.Gamepad.bRightTrigger > 30 ) ))
+      if (! SK_XInput_UpdatePolledDataAndTimestamp (
+                 pDevice, (
+                 pDevice->state.current.Gamepad.wButtons     !=    0 ||
+        ( ( abs (pDevice->state.current.Gamepad.sThumbLX)     > 5000 ||
+            abs (pDevice->state.current.Gamepad.sThumbLY)     > 5000 ||
+            abs (pDevice->state.current.Gamepad.sThumbRX)     > 5000 ||
+            abs (pDevice->state.current.Gamepad.sThumbRY)     > 5000 ||
+                 pDevice->state.current.Gamepad.bLeftTrigger  >   30 ||
+                 pDevice->state.current.Gamepad.bRightTrigger >   30 ) )
+                          ), bNewData          )
+         )
       {
-        pDevice->state.prev = pDevice->state.current;
-        pDevice->state.current.dwPacketNumber++;
-
-        bNewData = true;
+        return false;
       }
     }
 
@@ -547,29 +541,34 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
 
       if (pSimpleData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
-      if (pDevice->state.current.Gamepad.wButtons ||
-           ( ( abs (pDevice->state.current.Gamepad.sThumbLX) > 5000 ||
-               abs (pDevice->state.current.Gamepad.sThumbLY) > 5000 ||
-               abs (pDevice->state.current.Gamepad.sThumbRX) > 5000 ||
-               abs (pDevice->state.current.Gamepad.sThumbRY) > 5000 ||
-                    pDevice->state.current.Gamepad.bLeftTrigger  > 30 ||
-                    pDevice->state.current.Gamepad.bRightTrigger > 30 ) ))
+      if (! SK_XInput_UpdatePolledDataAndTimestamp (
+                 pDevice, (
+                 pDevice->state.current.Gamepad.wButtons     !=    0 ||
+        ( ( abs (pDevice->state.current.Gamepad.sThumbLX)     > 5000 ||
+            abs (pDevice->state.current.Gamepad.sThumbLY)     > 5000 ||
+            abs (pDevice->state.current.Gamepad.sThumbRX)     > 5000 ||
+            abs (pDevice->state.current.Gamepad.sThumbRY)     > 5000 ||
+                 pDevice->state.current.Gamepad.bLeftTrigger  >   30 ||
+                 pDevice->state.current.Gamepad.bRightTrigger >   30 ) )
+                          ), bNewData          )
+         )
       {
-        pDevice->state.prev = pDevice->state.current;
-        pDevice->state.current.dwPacketNumber++;
-
-        bNewData = true;
+        return false;
       }
     }
 
-    if ( (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_Y    ) != 0 &&
-         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+    if (config.bSpecialTriangleShutsOff)
     {
-      if (SK_Bluetooth_PowerOffGamepad (pDevice))
+      if (                                                              bNewData &&
+           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_Y    ) != 0 &&
+           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
       {
-        pDevice->bConnected = false;
+        if (SK_Bluetooth_PowerOffGamepad (pDevice))
+        {
+          pDevice->disconnect ();
 
-        return false;
+          return false;
+        }
       }
     }
 
@@ -589,25 +588,14 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
     if (dwLastErr == ERROR_DEVICE_NOT_CONNECTED ||
         dwLastErr == ERROR_INVALID_HANDLE)
     {
-      if (dwLastErr != ERROR_INVALID_HANDLE)
-        CloseHandle (std::exchange (pDevice->hDeviceFile, INVALID_HANDLE_VALUE));
-
-      pDevice->hDeviceFile =
-               CreateFileW ( pDevice->wszDevicePath,
-                               FILE_GENERIC_READ | FILE_GENERIC_WRITE,
-                               FILE_SHARE_READ   | FILE_SHARE_WRITE,
-                                 nullptr, OPEN_EXISTING, 0x0, nullptr );
-
-      if (pDevice->hDeviceFile == INVALID_HANDLE_VALUE)
-        pDevice->bConnected = false;
+      pDevice->disconnect ();
 
       return false;
     }
 
-    if (dwLastErr == ERROR_INVALID_USER_BUFFER ||
-        dwLastErr == ERROR_INVALID_PARAMETER)
+    if (dwLastErr == ERROR_INVALID_USER_BUFFER)
     {
-      pDevice->bConnected = false;
+      pDevice->disconnect ();
 
       return false;
     }

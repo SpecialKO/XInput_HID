@@ -38,6 +38,11 @@ SK_Bluetooth_PowerOffGamepad (hid_device_file_s* pDevice)
                                                nullptr,    0,
                              &dwBytesReturned, nullptr );
 
+    if (success)
+    {
+      pDevice->disconnect ();
+    }
+
     CloseHandle (hBtRadio);
 
     if (! success)

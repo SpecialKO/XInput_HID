@@ -59,6 +59,9 @@
     <ClCompile Include="switch_pro.cpp">
       <Filter>Source Files\HID Devices</Filter>
     </ClCompile>
+    <ClCompile Include="hid_core.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="XInput.def">

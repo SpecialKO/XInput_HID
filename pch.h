@@ -12,6 +12,12 @@
 // add headers that you want to pre-compile here
 #include "framework.h"
 #include "config.h"
+
+#include <windef.h>
+#include <cstdint>
+#include <string>
+
+#include <mmsystem.h>
 #include <Shlwapi.h>
 
 #include <concurrent_vector.h>

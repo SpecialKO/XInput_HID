@@ -17,6 +17,8 @@ DllMain ( HMODULE hModule,
           DWORD   ul_reason_for_call,
           LPVOID  lpReserved )
 {
+  std::ignore = lpReserved;
+
   switch (ul_reason_for_call)
   {
     case DLL_PROCESS_ATTACH:
@@ -33,6 +35,9 @@ DllMain ( HMODULE hModule,
 
 #if 1
       XInput_HID_InitThread (nullptr);
+
+      GetModuleHandleEx ( GET_MODULE_HANDLE_EX_FLAG_PIN |
+                          GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCWSTR)hModule, &hModule);
 #else
       CloseHandle (
         CreateThread ( nullptr, 0x0, XInput_HID_InitThread,
