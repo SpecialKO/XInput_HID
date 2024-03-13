@@ -99,6 +99,7 @@ SK_SwitchPro_GetInputReportUSB (void *pGenericDev)
   // HID Input Report 0x30 (USB)
   report [0] = 0x30;
 
+  bool  bNewData    = false;
   DWORD dwBytesRead = 0;
 
   if (ReadFile (pDevice->hDeviceFile, report, 2048, &dwBytesRead, nullptr))
@@ -163,10 +164,19 @@ SK_SwitchPro_GetInputReportUSB (void *pGenericDev)
 
     if (pData->ButtonHome   != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
-    if (memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)))
+    //if (memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)))
+    if (pDevice->state.current.Gamepad.wButtons)/// ||
+               //( ( abs (pDevice->state.current.Gamepad.sThumbLX) > 5000 ||
+               //    abs (pDevice->state.current.Gamepad.sThumbLY) > 5000 ||
+               //    abs (pDevice->state.current.Gamepad.sThumbRX) > 5000 ||
+               //    abs (pDevice->state.current.Gamepad.sThumbRY) > 5000 ||
+               //         pDevice->state.current.Gamepad.bLeftTrigger  > 30 ||
+               //         pDevice->state.current.Gamepad.bRightTrigger > 30 ) && memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)) ))
     {
       pDevice->state.prev = pDevice->state.current;
       pDevice->state.current.dwPacketNumber++;
+
+      bNewData = true;
     }
 
 #if 0
@@ -174,7 +184,7 @@ SK_SwitchPro_GetInputReportUSB (void *pGenericDev)
     pData->ButtonShare != 0;
 #endif
 
-    return true;
+    return bNewData;
   }
 
   else
@@ -194,11 +204,17 @@ SK_SwitchPro_GetInputReportUSB (void *pGenericDev)
                                FILE_SHARE_READ   | FILE_SHARE_WRITE,
                                  nullptr, OPEN_EXISTING, 0x0, nullptr );
 
-      return true;
+      if (pDevice->hDeviceFile == INVALID_HANDLE_VALUE)
+        pDevice->bConnected = false;
+
+      return false;
     }
 
-    if (dwLastErr == ERROR_INVALID_USER_BUFFER)
+    if (dwLastErr == ERROR_INVALID_USER_BUFFER ||
+        dwLastErr == ERROR_INVALID_PARAMETER)
     {
+      pDevice->bConnected = false;
+
       return false;
     }
 
@@ -227,6 +243,7 @@ SK_SwitchPro_GetInputReportBt (void *pGenericDev)
   // HID Input Report 0x30 (USB)
   report [0] = 0x30;
 
+  bool  bNewData    = false;
   DWORD dwBytesRead = 0;
 
   if (ReadFile (pDevice->hDeviceFile, report, 2048, &dwBytesRead, nullptr))
@@ -280,10 +297,18 @@ SK_SwitchPro_GetInputReportBt (void *pGenericDev)
 
     if (pData->ButtonHome   != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
-    if (memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)))
+    if (pDevice->state.current.Gamepad.wButtons)
+               //( ( abs (pDevice->state.current.Gamepad.sThumbLX) > 5000 ||
+               //    abs (pDevice->state.current.Gamepad.sThumbLY) > 5000 ||
+               //    abs (pDevice->state.current.Gamepad.sThumbRX) > 5000 ||
+               //    abs (pDevice->state.current.Gamepad.sThumbRY) > 5000 ||
+               //         pDevice->state.current.Gamepad.bLeftTrigger  > 30 ||
+               //         pDevice->state.current.Gamepad.bRightTrigger > 30 ) && memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)) ))
     {
       pDevice->state.prev = pDevice->state.current;
       pDevice->state.current.dwPacketNumber++;
+
+      bNewData = true;
     }
 
 #if 0
@@ -294,10 +319,15 @@ SK_SwitchPro_GetInputReportBt (void *pGenericDev)
     if ( (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_Y    ) != 0 &&
          (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
     {
-      SK_Bluetooth_PowerOffGamepad (pDevice);
+      if (SK_Bluetooth_PowerOffGamepad (pDevice))
+      {
+        pDevice->bConnected = false;
+
+        return false;
+      }
     }
 
-    return true;
+    return false;
   }
 
   else
@@ -317,11 +347,17 @@ SK_SwitchPro_GetInputReportBt (void *pGenericDev)
                                FILE_SHARE_READ   | FILE_SHARE_WRITE,
                                  nullptr, OPEN_EXISTING, 0x0, nullptr );
 
-      return true;
+      if (pDevice->hDeviceFile == INVALID_HANDLE_VALUE)
+        pDevice->bConnected = false;
+
+      return false;
     }
 
-    if (dwLastErr == ERROR_INVALID_USER_BUFFER)
+    if (dwLastErr == ERROR_INVALID_USER_BUFFER ||
+        dwLastErr == ERROR_INVALID_PARAMETER)
     {
+      pDevice->bConnected = false;
+
       return false;
     }
 

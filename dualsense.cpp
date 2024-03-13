@@ -343,6 +343,7 @@ SK_DualSense_GetInputReportUSB (void *pGenericDev)
   // HID Input Report 0x1 (USB)
   report [0] = 0x1;
 
+  bool  bNewData = false;
   DWORD dwBytesRead = 0;
 
   if (ReadFile (pDevice->hDeviceFile, report, 4096, &dwBytesRead, nullptr))
@@ -403,10 +404,18 @@ SK_DualSense_GetInputReportUSB (void *pGenericDev)
 
     if (pData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
-    if (memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)))
+    if (pDevice->state.current.Gamepad.wButtons ||
+               ( ( abs (pDevice->state.current.Gamepad.sThumbLX) > 5000 ||
+                   abs (pDevice->state.current.Gamepad.sThumbLY) > 5000 ||
+                   abs (pDevice->state.current.Gamepad.sThumbRX) > 5000 ||
+                   abs (pDevice->state.current.Gamepad.sThumbRY) > 5000 ||
+                        pDevice->state.current.Gamepad.bLeftTrigger  > 30 ||
+                        pDevice->state.current.Gamepad.bRightTrigger > 30 ) ))
     {
       pDevice->state.prev = pDevice->state.current;
       pDevice->state.current.dwPacketNumber++;
+
+      bNewData = true;
     }
 
     //if (pDevice->buttons.size () >= 14)
@@ -420,7 +429,7 @@ SK_DualSense_GetInputReportUSB (void *pGenericDev)
     //  pDevice->buttons [18].state = pData->ButtonRightPaddle   != 0;
     //}
 
-    return true;
+    return bNewData;
   }
 
   else
@@ -440,11 +449,17 @@ SK_DualSense_GetInputReportUSB (void *pGenericDev)
                                FILE_SHARE_READ   | FILE_SHARE_WRITE,
                                  nullptr, OPEN_EXISTING, 0x0, nullptr );
 
-      return true;
+      if (pDevice->hDeviceFile == INVALID_HANDLE_VALUE)
+        pDevice->bConnected = false;
+
+      return pDevice->bConnected;
     }
 
-    if (dwLastErr == ERROR_INVALID_USER_BUFFER)
+    if (dwLastErr == ERROR_INVALID_USER_BUFFER ||
+        dwLastErr == ERROR_INVALID_PARAMETER)
     {
+      pDevice->bConnected = false;
+
       return false;
     }
 
@@ -483,7 +498,8 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
     SK_HID_DualSense_GetStateData *pData =
       (SK_HID_DualSense_GetStateData *)&pInputRaw [2];
 
-    bool bSimple = false;
+    bool bSimple  = false;
+    bool bNewData = false;
 
     // We're in simplified mode...
     if (pInputRaw [0] == 0x1)
@@ -544,10 +560,18 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
 
       if (pData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
-      if (memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)))
+      if (pDevice->state.current.Gamepad.wButtons ||
+           ( ( abs (pDevice->state.current.Gamepad.sThumbLX) > 5000 ||
+               abs (pDevice->state.current.Gamepad.sThumbLY) > 5000 ||
+               abs (pDevice->state.current.Gamepad.sThumbRX) > 5000 ||
+               abs (pDevice->state.current.Gamepad.sThumbRY) > 5000 ||
+                    pDevice->state.current.Gamepad.bLeftTrigger  > 30 ||
+                    pDevice->state.current.Gamepad.bRightTrigger > 30 ) ))
       {
         pDevice->state.prev = pDevice->state.current;
         pDevice->state.current.dwPacketNumber++;
+
+        bNewData = true;
       }
 
 #if 0
@@ -645,20 +669,32 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
 
       if (pSimpleData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
-      if (memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)))
+      if (pDevice->state.current.Gamepad.wButtons ||
+           ( ( abs (pDevice->state.current.Gamepad.sThumbLX) > 5000 ||
+               abs (pDevice->state.current.Gamepad.sThumbLY) > 5000 ||
+               abs (pDevice->state.current.Gamepad.sThumbRX) > 5000 ||
+               abs (pDevice->state.current.Gamepad.sThumbRY) > 5000 ||
+                    pDevice->state.current.Gamepad.bLeftTrigger  > 30 ||
+                    pDevice->state.current.Gamepad.bRightTrigger > 30 ) ))
       {
         pDevice->state.prev = pDevice->state.current;
         pDevice->state.current.dwPacketNumber++;
+        bNewData = true;
       }
     }
 
     if ( (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_Y    ) != 0 &&
          (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
     {
-      SK_Bluetooth_PowerOffGamepad (pDevice);
+      if (SK_Bluetooth_PowerOffGamepad (pDevice))
+      {
+        pDevice->bConnected = false;
+
+        return false;
+      }
     }
 
-    return true;
+    return bNewData;
   }
 
   else
@@ -678,11 +714,17 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
                                FILE_SHARE_READ   | FILE_SHARE_WRITE,
                                  nullptr, OPEN_EXISTING, 0x0, nullptr );
 
+      if (pDevice->hDeviceFile == INVALID_HANDLE_VALUE)
+        pDevice->bConnected = false;
+
       return true;
     }
 
-    if (dwLastErr == ERROR_INVALID_USER_BUFFER)
+    if (dwLastErr == ERROR_INVALID_USER_BUFFER ||
+        dwLastErr == ERROR_INVALID_PARAMETER)
     {
+      pDevice->bConnected = false;
+
       return false;
     }
 

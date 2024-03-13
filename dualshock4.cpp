@@ -309,6 +309,8 @@ SK_DualShock4_GetInputReportUSB (void *pGenericDev)
     {
       pDevice->state.prev = pDevice->state.current;
       pDevice->state.current.dwPacketNumber++;
+
+      return pDevice->bConnected;
     }
 
 #if 0
@@ -316,7 +318,7 @@ SK_DualShock4_GetInputReportUSB (void *pGenericDev)
     pData->ButtonPad != 0;
 #endif
 
-    return true;
+    return false;
   }
 
   else
@@ -336,11 +338,17 @@ SK_DualShock4_GetInputReportUSB (void *pGenericDev)
                                FILE_SHARE_READ   | FILE_SHARE_WRITE,
                                  nullptr, OPEN_EXISTING, 0x0, nullptr );
 
-      return true;
+      if (pDevice->hDeviceFile == INVALID_HANDLE_VALUE)
+        pDevice->bConnected = false;
+
+      return false;
     }
 
-    if (dwLastErr == ERROR_INVALID_USER_BUFFER)
+    if (dwLastErr == ERROR_INVALID_USER_BUFFER ||
+        dwLastErr == ERROR_INVALID_PARAMETER)
     {
+      pDevice->bConnected = false;
+
       return false;
     }
 
@@ -388,6 +396,8 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
     {
       bSimple = true;
     }
+
+    bool bNewData = false;
     
     if (! bSimple)
     {
@@ -442,10 +452,18 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
 
       if (pData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
-      if (memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)))
+      if (pDevice->state.current.Gamepad.wButtons ||
+           ( ( abs (pDevice->state.current.Gamepad.sThumbLX) > 5000 ||
+               abs (pDevice->state.current.Gamepad.sThumbLY) > 5000 ||
+               abs (pDevice->state.current.Gamepad.sThumbRX) > 5000 ||
+               abs (pDevice->state.current.Gamepad.sThumbRY) > 5000 ||
+                    pDevice->state.current.Gamepad.bLeftTrigger  > 30 ||
+                    pDevice->state.current.Gamepad.bRightTrigger > 30 ) ))
       {
         pDevice->state.prev = pDevice->state.current;
         pDevice->state.current.dwPacketNumber++;
+
+        bNewData = true;
       }
     }
 
@@ -529,17 +547,30 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
 
       if (pSimpleData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
-      if (memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)))
+      if (pDevice->state.current.Gamepad.wButtons ||
+           ( ( abs (pDevice->state.current.Gamepad.sThumbLX) > 5000 ||
+               abs (pDevice->state.current.Gamepad.sThumbLY) > 5000 ||
+               abs (pDevice->state.current.Gamepad.sThumbRX) > 5000 ||
+               abs (pDevice->state.current.Gamepad.sThumbRY) > 5000 ||
+                    pDevice->state.current.Gamepad.bLeftTrigger  > 30 ||
+                    pDevice->state.current.Gamepad.bRightTrigger > 30 ) ))
       {
         pDevice->state.prev = pDevice->state.current;
         pDevice->state.current.dwPacketNumber++;
+
+        bNewData = true;
       }
     }
 
     if ( (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_Y    ) != 0 &&
          (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
     {
-      SK_Bluetooth_PowerOffGamepad (pDevice);
+      if (SK_Bluetooth_PowerOffGamepad (pDevice))
+      {
+        pDevice->bConnected = false;
+
+        return false;
+      }
     }
 
 #if 0
@@ -547,7 +578,7 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
     pData->ButtonPad != 0;
 #endif
 
-    return true;
+    return bNewData;
   }
 
   else
@@ -567,11 +598,17 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
                                FILE_SHARE_READ   | FILE_SHARE_WRITE,
                                  nullptr, OPEN_EXISTING, 0x0, nullptr );
 
-      return true;
+      if (pDevice->hDeviceFile == INVALID_HANDLE_VALUE)
+        pDevice->bConnected = false;
+
+      return false;
     }
 
-    if (dwLastErr == ERROR_INVALID_USER_BUFFER)
+    if (dwLastErr == ERROR_INVALID_USER_BUFFER ||
+        dwLastErr == ERROR_INVALID_PARAMETER)
     {
+      pDevice->bConnected = false;
+
       return false;
     }
 
