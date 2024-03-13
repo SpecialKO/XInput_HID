@@ -13,6 +13,7 @@ bool _GetInputReportStub (void*) { return false; }
 concurrency::concurrent_vector <hid_device_file_s> hid_devices;
 
 extern HMODULE hModRealXInput14;
+extern BOOL    bCanUnloadRealXInput;
 
 XInputGetState_pfn                  _XInputGetState                  = nullptr;
 XInputGetStateEx_pfn                _XInputGetStateEx                = nullptr;
@@ -642,6 +643,26 @@ XInput_HID_InitThread (LPVOID)
 }
 
 
+void
+SK_XInput_ProbeAllSlotsForControllers (int slot0, int slot1, int slot2, int slot3)
+{
+  XINPUT_CAPABILITIES test_caps = {};
+
+  bool connected0 =
+    _XInputGetCapabilities (0, XINPUT_FLAG_GAMEPAD, &test_caps) == ERROR_SUCCESS;
+  bool connected1 =
+    _XInputGetCapabilities (1, XINPUT_FLAG_GAMEPAD, &test_caps) == ERROR_SUCCESS;
+  bool connected2 =
+    _XInputGetCapabilities (2, XINPUT_FLAG_GAMEPAD, &test_caps) == ERROR_SUCCESS;
+  bool connected3 =
+    _XInputGetCapabilities (3, XINPUT_FLAG_GAMEPAD, &test_caps) == ERROR_SUCCESS;
+
+  SK_XInput_SlotStatus [0] = connected0;
+  SK_XInput_SlotStatus [1] = connected1;
+  SK_XInput_SlotStatus [2] = connected2;
+  SK_XInput_SlotStatus [3] = connected3;
+}
+
 DWORD
 WINAPI
 XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
@@ -659,7 +680,19 @@ XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
   if (SK_XInput_SlotStatus [dwUserIndex] && dwState == ERROR_DEVICE_NOT_CONNECTED)
       SK_XInput_SlotStatus [dwUserIndex] = false;
 
-  if (dwState == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex == 0)
+  DWORD first_unused_slot = 0;
+
+  if (      SK_XInput_SlotStatus [ 0 ])
+  { if (    SK_XInput_SlotStatus [ 1 ])
+    { if (  SK_XInput_SlotStatus [ 2 ])
+      { if (SK_XInput_SlotStatus [ 3 ])
+        {      first_unused_slot = 4; // XXX
+        } else first_unused_slot = 3;
+      } else   first_unused_slot = 2;
+    } else     first_unused_slot = 1;
+  } else       first_unused_slot = 0;
+
+  if (dwState == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex >= first_unused_slot)
   {
     bool bSuccess = false;
 
@@ -707,7 +740,19 @@ XInputGetStateEx (DWORD dwUserIndex, XINPUT_STATE_EX *pState)
   if (SK_XInput_SlotStatus [dwUserIndex] && dwState == ERROR_DEVICE_NOT_CONNECTED)
       SK_XInput_SlotStatus [dwUserIndex] = false;
 
-  if (dwState == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex == 0)
+  DWORD first_unused_slot = 0;
+
+  if (      SK_XInput_SlotStatus [ 0 ])
+  { if (    SK_XInput_SlotStatus [ 1 ])
+    { if (  SK_XInput_SlotStatus [ 2 ])
+      { if (SK_XInput_SlotStatus [ 3 ])
+        {      first_unused_slot = 4; // XXX
+        } else first_unused_slot = 3;
+      } else   first_unused_slot = 2;
+    } else     first_unused_slot = 1;
+  } else       first_unused_slot = 0;
+
+  if (dwState == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex >= first_unused_slot)
   {
     bool bSuccess = false;
 
@@ -771,11 +816,30 @@ XInputGetCapabilities (
   if (SK_XInput_SlotStatus [dwUserIndex] && dwResult == ERROR_DEVICE_NOT_CONNECTED)
       SK_XInput_SlotStatus [dwUserIndex] = false;
 
-  if (dwResult == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex == 0)
+  DWORD first_unused_slot = 0;
+
+  if (      SK_XInput_SlotStatus [ 0 ])
+  { if (    SK_XInput_SlotStatus [ 1 ])
+    { if (  SK_XInput_SlotStatus [ 2 ])
+      { if (SK_XInput_SlotStatus [ 3 ])
+        {      first_unused_slot = 4; // XXX
+        } else first_unused_slot = 3;
+      } else   first_unused_slot = 2;
+    } else     first_unused_slot = 1;
+  } else       first_unused_slot = 0;
+
+  if (dwResult == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex >= first_unused_slot)
   {
+    int num_connected = 0;
+
     for ( auto& controller : hid_devices )
     {
-      if (controller.bConnected)
+      if (controller.bConnected) ++num_connected;
+    }
+
+    for ( auto& controller : hid_devices )
+    {
+      if (controller.bConnected && dwUserIndex < first_unused_slot + num_connected)
       {
         if (controller.GetInputReport ())
         {
@@ -810,11 +874,30 @@ XInputGetCapabilitiesEx (
   if (SK_XInput_SlotStatus [dwUserIndex] && dwResult == ERROR_DEVICE_NOT_CONNECTED)
       SK_XInput_SlotStatus [dwUserIndex] = false;
 
-  if (dwResult == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex == 0)
+  DWORD first_unused_slot = 0;
+
+  if (      SK_XInput_SlotStatus [ 0 ])
+  { if (    SK_XInput_SlotStatus [ 1 ])
+    { if (  SK_XInput_SlotStatus [ 2 ])
+      { if (SK_XInput_SlotStatus [ 3 ])
+        {      first_unused_slot = 4; // XXX
+        } else first_unused_slot = 3;
+      } else   first_unused_slot = 2;
+    } else     first_unused_slot = 1;
+  } else       first_unused_slot = 0;
+
+  if (dwResult == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex >= first_unused_slot)
   {
+    int num_connected = 0;
+
     for ( auto& controller : hid_devices )
     {
-      if (controller.bConnected)
+      if (controller.bConnected) ++num_connected;
+    }
+
+    for ( auto& controller : hid_devices )
+    {
+      if (controller.bConnected && dwUserIndex < first_unused_slot + num_connected)
       {
         if (controller.GetInputReport ())
         {
