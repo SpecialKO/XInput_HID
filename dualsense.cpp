@@ -333,8 +333,10 @@ SK_DualSense_GetInputReportUSB (void *pGenericDev)
   hid_device_file_s* pDevice =
     (hid_device_file_s *)pGenericDev;
 
-  static thread_local uint8_t report [4096] = { };
-                  ZeroMemory (report, 4096);
+  ZeroMemory ( pDevice->input_report.data (),
+               pDevice->input_report.size () );
+
+  BYTE* report = pDevice->input_report.data ();
 
   // HID Input Report 0x1 (USB)
   report [0] = 0x1;
@@ -342,7 +344,7 @@ SK_DualSense_GetInputReportUSB (void *pGenericDev)
   bool  bNewData = false;
   DWORD dwBytesRead = 0;
 
-  if (ReadFile (pDevice->hDeviceFile, report, 4096, &dwBytesRead, nullptr))
+  if (ReadFile (pDevice->hDeviceFile, report, (DWORD)pDevice->input_report.size (), &dwBytesRead, nullptr))
   {
     SK_HID_DualSense_GetStateData *pData =
       (SK_HID_DualSense_GetStateData *)&report [1];
@@ -400,21 +402,110 @@ SK_DualSense_GetInputReportUSB (void *pGenericDev)
 
     if (pData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
+    float LX    = pDevice->state.current.Gamepad.sThumbLX;
+    float LY    = pDevice->state.current.Gamepad.sThumbLY;
+    float normL = sqrtf ( LX*LX + LY*LY );
+
+    float RX    = pDevice->state.current.Gamepad.sThumbRX;
+    float RY    = pDevice->state.current.Gamepad.sThumbRY;
+    float normR = sqrtf ( RX*RX + RY*RY );
+
     if (! SK_XInput_UpdatePolledDataAndTimestamp (
                    pDevice, (
                    pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
                    pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
-          ( ( abs (pDevice->state.current.Gamepad.sThumbLX)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
-              abs (pDevice->state.current.Gamepad.sThumbLY)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
-              abs (pDevice->state.current.Gamepad.sThumbRX)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
-              abs (pDevice->state.current.Gamepad.sThumbRY)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
+                                                          normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
+                                                          normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
                    pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD     ||
-                   pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD ) )
+                   pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD
                             ), bNewData          )
        )
     {
       return false;
     }
+
+#if 0
+    if (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE)
+    {
+      static constexpr DWORD dwRepeatRate = 200UL;
+
+      if (pDevice->state.current.Gamepad.sThumbLY > (XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE*3) && abs (pDevice->state.current.Gamepad.sThumbLX) < (XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE*2))
+      {
+        static DWORD dwLastActivation = 0;
+
+        if (dwLastActivation < timeGetTime () - dwRepeatRate)
+        {   dwLastActivation = timeGetTime ();
+          BYTE bScancode =
+            (BYTE)MapVirtualKey (VK_VOLUME_UP, 0);
+
+          DWORD dwFlags =
+            ( bScancode & 0xE0 ) == 0   ?
+              static_cast <DWORD> (0x0) :
+              static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+
+          keybd_event (VK_VOLUME_UP, bScancode, dwFlags,                   0);
+          keybd_event (VK_VOLUME_UP, bScancode, dwFlags | KEYEVENTF_KEYUP, 0);
+        }
+      }
+
+      if (pDevice->state.current.Gamepad.sThumbLY < (-XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE*3) && abs (pDevice->state.current.Gamepad.sThumbLX) < (XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE*2))
+      {
+        static DWORD dwLastActivation = 0;
+
+        if (dwLastActivation < timeGetTime () - dwRepeatRate)
+        {   dwLastActivation = timeGetTime ();
+          BYTE bScancode =
+            (BYTE)MapVirtualKey (VK_VOLUME_DOWN, 0);
+
+          DWORD dwFlags =
+            ( bScancode & 0xE0 ) == 0   ?
+              static_cast <DWORD> (0x0) :
+              static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+
+          keybd_event (VK_VOLUME_DOWN, bScancode, dwFlags,                   0);
+          keybd_event (VK_VOLUME_DOWN, bScancode, dwFlags | KEYEVENTF_KEYUP, 0);
+        }
+      }
+
+      if (pDevice->state.current.Gamepad.sThumbLX > (XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE*3) && abs (pDevice->state.current.Gamepad.sThumbLY) < (XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE*2))
+      {
+        static DWORD dwLastActivation = 0;
+
+        if (dwLastActivation < timeGetTime () - dwRepeatRate)
+        {   dwLastActivation = timeGetTime ();
+          BYTE bScancode =
+            (BYTE)MapVirtualKey (VK_MEDIA_NEXT_TRACK, 0);
+
+          DWORD dwFlags =
+            ( bScancode & 0xE0 ) == 0   ?
+              static_cast <DWORD> (0x0) :
+              static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+
+          keybd_event (VK_MEDIA_NEXT_TRACK, bScancode, dwFlags,                   0);
+          keybd_event (VK_MEDIA_NEXT_TRACK, bScancode, dwFlags | KEYEVENTF_KEYUP, 0);
+        }
+      }
+
+      if (pDevice->state.current.Gamepad.sThumbLX < (-XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE*3) && abs (pDevice->state.current.Gamepad.sThumbLY) < (XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE*2))
+      {
+        static DWORD dwLastActivation = 0;
+
+        if (dwLastActivation < timeGetTime () - dwRepeatRate)
+        {   dwLastActivation = timeGetTime ();
+          BYTE bScancode =
+            (BYTE)MapVirtualKey (VK_MEDIA_PREV_TRACK, 0);
+
+          DWORD dwFlags =
+            ( bScancode & 0xE0 ) == 0   ?
+              static_cast <DWORD> (0x0) :
+              static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+
+          keybd_event (VK_MEDIA_PREV_TRACK, bScancode, dwFlags,                   0);
+          keybd_event (VK_MEDIA_PREV_TRACK, bScancode, dwFlags | KEYEVENTF_KEYUP, 0);
+        }
+      }
+    }
+#endif
 
     //if (pDevice->buttons.size () >= 14)
     //  pDevice->buttons [13].state = pData->ButtonPad    != 0;
@@ -426,6 +517,13 @@ SK_DualSense_GetInputReportUSB (void *pGenericDev)
     //  pDevice->buttons [17].state = pData->ButtonLeftPaddle    != 0;
     //  pDevice->buttons [18].state = pData->ButtonRightPaddle   != 0;
     //}
+
+    if (                                                              bNewData &&
+         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
+         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+    {
+      SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+    }
 
     return bNewData;
   }
@@ -467,15 +565,17 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
   hid_device_file_s* pDevice =
     (hid_device_file_s *)pGenericDev;
 
-  static thread_local uint8_t report [4096] = { };
-                  ZeroMemory (report, 4096);
+  ZeroMemory ( pDevice->input_report.data (),
+               pDevice->input_report.size () );
+
+  BYTE* report = pDevice->input_report.data ();
 
   // HID Input Report 0x31 (Bluetooth)
   report [0] = 0x31;
 
   DWORD dwBytesRead = 0;
 
-  if (ReadFile (pDevice->hDeviceFile, report, 4096, &dwBytesRead, nullptr))
+  if (ReadFile (pDevice->hDeviceFile, report, (DWORD)pDevice->input_report.size (), &dwBytesRead, nullptr))
   {
     pDevice->state.current.Gamepad = { };
 
@@ -547,16 +647,22 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
 
       if (pData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
+      float LX    = pDevice->state.current.Gamepad.sThumbLX;
+      float LY    = pDevice->state.current.Gamepad.sThumbLY;
+      float normL = sqrtf ( LX*LX + LY*LY );
+
+      float RX    = pDevice->state.current.Gamepad.sThumbRX;
+      float RY    = pDevice->state.current.Gamepad.sThumbRY;
+      float normR = sqrtf ( RX*RX + RY*RY );
+
       if (! SK_XInput_UpdatePolledDataAndTimestamp (
                      pDevice, (
                      pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
                      pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
-            ( ( abs (pDevice->state.current.Gamepad.sThumbLX)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
-                abs (pDevice->state.current.Gamepad.sThumbLY)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
-                abs (pDevice->state.current.Gamepad.sThumbRX)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
-                abs (pDevice->state.current.Gamepad.sThumbRY)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
+                                                            normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
+                                                            normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
                      pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD     ||
-                     pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD ) )
+                     pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD
                               ), bNewData          )
          )
       {
@@ -658,17 +764,23 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
 
       if (pSimpleData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
+      float LX    = pDevice->state.current.Gamepad.sThumbLX;
+      float LY    = pDevice->state.current.Gamepad.sThumbLY;
+      float normL = sqrtf ( LX*LX + LY*LY );
+
+      float RX    = pDevice->state.current.Gamepad.sThumbRX;
+      float RY    = pDevice->state.current.Gamepad.sThumbRY;
+      float normR = sqrtf ( RX*RX + RY*RY );
+
       if (! SK_XInput_UpdatePolledDataAndTimestamp (
-               pDevice, (
-               pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
-               pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
-      ( ( abs (pDevice->state.current.Gamepad.sThumbLX)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
-          abs (pDevice->state.current.Gamepad.sThumbLY)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
-          abs (pDevice->state.current.Gamepad.sThumbRX)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
-          abs (pDevice->state.current.Gamepad.sThumbRY)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
-               pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD     ||
-               pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD ) )
-                        ), bNewData          )
+                     pDevice, (
+                     pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
+                     pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
+                                                            normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
+                                                            normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
+                     pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD     ||
+                     pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD
+                              ), bNewData          )
          )
       {
         return false;
@@ -685,6 +797,13 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
 
         return false;
       }
+    }
+
+    if (                                                              bNewData &&
+         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
+         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+    {
+      SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
     }
 
     return bNewData;

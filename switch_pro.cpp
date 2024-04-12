@@ -47,6 +47,25 @@ struct SK_HID_SwitchPro_GetStateData // 49 (0x30)
 /*13  */ uint8_t SixAxis [36];
 };
 
+#pragma pack(push,1)
+struct SK_HID_SwitchPro_OutputPacket
+{
+  uint8_t ReportID;
+  uint8_t Subtype;
+  uint8_t Data [47];
+};
+#pragma pack(pop)
+
+
+#pragma pack(push, 1)
+struct SK_HID_SwitchPro_PacketResponse // 64 (0x81)
+{
+  uint8_t ReportID;
+  uint8_t Subtype;
+  uint8_t Data [62];
+};
+#pragma pack(pop)
+
 void CalcAnalogStick2
 (
   float &pOutX,       // out: resulting stick X value
@@ -87,14 +106,165 @@ void CalcAnalogStick2
   pOutY = y_f;
 }
 
+// Sub-types of the 0x80 output report, used for initialization.
+const uint8_t kSubTypeRequestMac        = 0x01;
+const uint8_t kSubTypeHandshake         = 0x02;
+const uint8_t kSubTypeBaudRate          = 0x03;
+const uint8_t kSubTypeDisableUsbTimeout = 0x04;
+const uint8_t kSubTypeEnableUsbTimeout  = 0x05;
+
+typedef enum {
+    k_eSwitchInputReportIDs_SubcommandReply       = 0x21,
+    k_eSwitchInputReportIDs_FullControllerState   = 0x30,
+    k_eSwitchInputReportIDs_SimpleControllerState = 0x3F,
+    k_eSwitchInputReportIDs_CommandAck            = 0x81,
+} ESwitchInputReportIDs;
+
+typedef enum {
+    k_eSwitchOutputReportIDs_RumbleAndSubcommand = 0x01,
+    k_eSwitchOutputReportIDs_Rumble              = 0x10,
+    k_eSwitchOutputReportIDs_Proprietary         = 0x80,
+} ESwitchOutputReportIDs;
+
+typedef enum {
+    k_eSwitchSubcommandIDs_BluetoothManualPair = 0x01,
+    k_eSwitchSubcommandIDs_RequestDeviceInfo   = 0x02,
+    k_eSwitchSubcommandIDs_SetInputReportMode  = 0x03,
+    k_eSwitchSubcommandIDs_SetHCIState         = 0x06,
+    k_eSwitchSubcommandIDs_SPIFlashRead        = 0x10,
+    k_eSwitchSubcommandIDs_SetPlayerLights     = 0x30,
+    k_eSwitchSubcommandIDs_SetHomeLight        = 0x38,
+    k_eSwitchSubcommandIDs_EnableIMU           = 0x40,
+    k_eSwitchSubcommandIDs_SetIMUSensitivity   = 0x41,
+    k_eSwitchSubcommandIDs_EnableVibration     = 0x48,
+} ESwitchSubcommandIDs;
+
+static int output_counter = 0;
+
+bool
+WriteSubcommand (hid_device_file_s* pDevice, uint8_t sub_command, uint8_t val)
+{
+  DWORD dwBytesRead = 0;
+
+  BYTE output [64] = { };
+  BYTE input  [64] = { };
+
+  // Serial subcommands also carry vibration data. Configure the vibration
+  // portion of the report for a neutral vibration effect (zero amplitude).
+  // https://github.com/dekuNukem/Nintendo_Switch_Reverse_Engineering/blob/master/bluetooth_hid_notes.md#output-0x12
+  output [ 1] = static_cast <uint8_t>(output_counter++ & 0xff);
+  output [ 2] = 0x00;
+  output [ 3] = 0x01;
+  output [ 4] = 0x40;
+  output [ 5] = 0x40;
+  output [ 6] = 0x00;
+  output [ 7] = 0x01;
+  output [ 8] = 0x40;
+  output [ 9] = 0x40;
+  output [10] = sub_command;
+  output [11] = val;
+//DCHECK_LT(bytes.size() + kSubCommandDataOffset, output_report_size_bytes_);
+//base::ranges::copy(bytes, &report_bytes[kSubCommandDataOffset - 1]);
+
+  output [0] = 0x1;
+
+  if (! HidD_SetOutputReport (pDevice->hDeviceFile, output, (ULONG)pDevice->output_report.size ()))
+  {
+    MessageBox (
+      nullptr, std::to_wstring (GetLastError ()).c_str (),
+        L"HID Init Error (HidD_SetOutputReport - Switch Pro [Usb])",
+          MB_OK
+    );
+
+    return false;
+  }
+
+  return true;
+}
+
+bool
+SendPacket (hid_device_file_s* pDevice, uint8_t type)
+{
+  DWORD dwBytesRead = 0;
+
+  BYTE output [64] = { };
+  BYTE input  [64] = { };
+
+  SK_HID_SwitchPro_OutputPacket* out =
+    (SK_HID_SwitchPro_OutputPacket *)output;
+  SK_HID_SwitchPro_PacketResponse* ack =
+    (SK_HID_SwitchPro_PacketResponse *)input;
+
+  out->ReportID = 0x80;
+  out->Subtype  = type;
+
+  if (! HidD_SetOutputReport (pDevice->hDeviceFile, output, (ULONG)pDevice->output_report.size ()))
+  //if (! WriteFile (pDevice->hDeviceFile, output, pDevice->output_report.size (), &dwBytesRead, nullptr))
+  {
+      MessageBox (
+        nullptr, std::to_wstring (GetLastError ()).c_str (),
+          L"HID Init Error (HidD_SetOutputReport - Switch Pro [Usb])",
+            MB_OK
+      );
+
+    return false;
+  }
+
+  ack->ReportID = 0x81;
+  ack->Subtype  = type;
+
+  //if (! HidD_GetInputReport (pDevice->hDeviceFile, input, pDevice->input_report.size ()))//, &dwBytesRead,    nullptr))
+  if (! ReadFile (pDevice->hDeviceFile,   input, 64, &dwBytesRead,    nullptr))
+   {
+       MessageBox (
+         nullptr, std::to_wstring (GetLastError ()).c_str (),
+           L"HID Init Error (ReadFile - Switch Pro [Usb])",
+             MB_OK
+       );
+
+     return false;
+   }
+
+  return true;
+}
+
 bool
 SK_SwitchPro_GetInputReportUSB (void *pGenericDev)
 {
   hid_device_file_s* pDevice =
     (hid_device_file_s *)pGenericDev;
 
-  static thread_local uint8_t report [2048] = { };
-                  ZeroMemory (report, 2048);
+  // Handshake needed
+  //
+  if ( pDevice->state.current.dwPacketNumber == 0 &&
+       pDevice->state.prev.   dwPacketNumber == 0 &&
+       pDevice->state.input_timestamp        == 0 )
+  {
+    pDevice->state.current.dwPacketNumber = 0;
+    pDevice->state.prev.   dwPacketNumber = 0;
+    pDevice->state.input_timestamp        = 1;
+
+#if 0
+    //if (! SendPacket (pDevice, kSubTypeRequestMac))
+    //  MessageBox (NULL, L"Oh no", L"Oh no", MB_OK);
+    //if (! SendPacket (pDevice, kSubTypeHandshake))
+    //  MessageBox (NULL, L"Oh no", L"Oh no", MB_OK);
+    //if (! SendPacket (pDevice, kSubTypeBaudRate))
+    //  MessageBox (NULL, L"Oh no", L"Oh no", MB_OK);
+    //if (! SendPacket (pDevice, kSubTypeHandshake))
+    //  MessageBox (NULL, L"Oh no", L"Oh no", MB_OK);
+
+    WriteSubcommand (pDevice, k_eSwitchSubcommandIDs_SetInputReportMode, k_eSwitchInputReportIDs_FullControllerState);
+
+    MessageBox (NULL, L"Oh Yeah!", L"Oh Yeah!", MB_OK);
+#endif
+  }
+
+  BYTE report [64] = { };
+  //ZeroMemory ( pDevice->input_report.data (),
+  //             pDevice->input_report.size () );
+
+  //BYTE* report = pDevice->input_report.data ();
 
   // HID Input Report 0x30 (USB)
   report [0] = 0x30;
@@ -102,7 +272,7 @@ SK_SwitchPro_GetInputReportUSB (void *pGenericDev)
   bool  bNewData    = false;
   DWORD dwBytesRead = 0;
 
-  if (ReadFile (pDevice->hDeviceFile, report, 2048, &dwBytesRead, nullptr))
+  if (ReadFile (pDevice->hDeviceFile, report, 64, &dwBytesRead, nullptr))
   {
     SK_HID_SwitchPro_GetStateData *pData =
       (SK_HID_SwitchPro_GetStateData *)&report [1];
@@ -217,11 +387,15 @@ SK_SwitchPro_GetInputReportUSB (void *pGenericDev)
 bool
 SK_SwitchPro_GetInputReportBt (void *pGenericDev)
 {
+  return false;
+
   hid_device_file_s* pDevice =
     (hid_device_file_s *)pGenericDev;
 
-  static thread_local uint8_t report [2048] = { };
-                  ZeroMemory (report, 2048);
+  //ZeroMemory ( pDevice->input_report.data (),
+  //             pDevice->input_report.size () );
+
+  BYTE report [512] = { };//pDevice->input_report.data ();
 
   // HID Input Report 0x30 (USB)
   report [0] = 0x30;
@@ -229,7 +403,8 @@ SK_SwitchPro_GetInputReportBt (void *pGenericDev)
   bool  bNewData    = false;
   DWORD dwBytesRead = 0;
 
-  if (ReadFile (pDevice->hDeviceFile, report, 2048, &dwBytesRead, nullptr))
+  //if (ReadFile (pDevice->hDeviceFile, report, 49, &dwBytesRead, nullptr))  
+  if (HidD_GetInputReport (pDevice->hDeviceFile, report, (ULONG)pDevice->input_report.size ()))
   {
     SK_HID_SwitchPro_GetStateData *pData =
       (SK_HID_SwitchPro_GetStateData *)&report [1];
@@ -306,7 +481,7 @@ SK_SwitchPro_GetInputReportBt (void *pGenericDev)
       }
     }
 
-    return false;
+    return true;
   }
 
   else

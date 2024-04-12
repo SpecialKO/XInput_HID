@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 using GetInputReport_pfn = bool (*)(void*);
 bool _GetInputReportStub (void* pDevice);
 
@@ -32,16 +34,32 @@ struct hid_device_file_s {
     XINPUT_STATE current         = { };
     XINPUT_STATE prev            = { };
     DWORD        input_timestamp =  0 ;
+    DWORD        last_idle_check =  0 ; // Last time idle power-off was tested
   } state;
 
   struct {
     DWORD todo = 0;
   } battery;
 
+  std::vector <BYTE> input_report;
+  std::vector <BYTE> output_report;
+  std::vector <BYTE> feature_report;
+
   GetInputReport_pfn get_input_report = _GetInputReportStub;
 
   bool GetInputReport (void)
   {
+    static bool          s_Once = false;
+    if (! std::exchange (s_Once , true))
+    {
+      DWORD dwBytesRead = 0;
+      LONG  lImmediate  = 0;
+
+      DeviceIoControl (
+        hDeviceFile, IOCTL_HID_SET_POLL_FREQUENCY_MSEC,
+          &lImmediate, sizeof (LONG), nullptr, 0, &dwBytesRead, nullptr );
+    }
+
     return
       get_input_report (this);
   }

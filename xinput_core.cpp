@@ -8,6 +8,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <format>
 
 #pragma comment (lib, "winmm.lib")
 
@@ -137,7 +138,7 @@ SK_XInput_NotifyDeviceArrival (void)
                           hDeviceFile.m_h =
                             CreateFileW ( wszFileName, FILE_GENERIC_READ | FILE_GENERIC_WRITE,
                                                        FILE_SHARE_READ   | FILE_SHARE_WRITE,
-                                                         nullptr, OPEN_EXISTING, 0x0, nullptr );
+                                                         nullptr, OPEN_EXISTING, 0x0,  nullptr );
 
                           if ((intptr_t)hDeviceFile.m_h > 0)
                           {
@@ -348,10 +349,13 @@ SK_XInput_NotifyDeviceArrival (void)
         DefWindowProcW (hwnd, message, wParam, lParam);
     };
 
+    std::wstring wnd_class_name =
+      std::format (L"SK_HID_XInput_Listener_pid{}", GetCurrentProcessId ());
+
     WNDCLASSEXW
       wnd_class               = {                       };
       wnd_class.hInstance     = GetModuleHandle (nullptr);
-      wnd_class.lpszClassName = L"SK_HID_Listener";
+      wnd_class.lpszClassName = wnd_class_name.c_str ();
       wnd_class.lpfnWndProc   = SK_HID_DeviceNotifyProc;
       wnd_class.cbSize        = sizeof (WNDCLASSEXW);
 
@@ -360,7 +364,7 @@ SK_XInput_NotifyDeviceArrival (void)
       DWORD dwWaitStatus = WAIT_OBJECT_0;
 
       hWndDeviceListener =
-        (HWND)CreateWindowEx ( 0, L"SK_HID_Listener",    NULL, 0,
+        (HWND)CreateWindowEx ( 0, wnd_class_name.c_str (),     NULL, 0,
                                0, 0, 0, 0, HWND_MESSAGE, NULL, NULL, NULL );
 
       DEV_BROADCAST_DEVICEINTERFACE_W
@@ -482,9 +486,7 @@ void SK_HID_SetupCompatibleControllers (void)
         HANDLE hDeviceFile (
                CreateFileW ( wszFileName, FILE_GENERIC_READ | FILE_GENERIC_WRITE,
                                           FILE_SHARE_READ   | FILE_SHARE_WRITE,
-                                            nullptr, OPEN_EXISTING, /*FILE_FLAG_WRITE_THROUGH  |
-                                                                    FILE_ATTRIBUTE_TEMPORARY |
-                                                                    FILE_FLAG_OVERLAPPED*/0x0, nullptr )
+                                            nullptr, OPEN_EXISTING, 0x0, nullptr )
                            );
 
         if ((intptr_t)hDeviceFile <= 0)
@@ -495,7 +497,23 @@ void SK_HID_SetupCompatibleControllers (void)
         HIDD_ATTRIBUTES hidAttribs      = {                      };
                         hidAttribs.Size = sizeof (HIDD_ATTRIBUTES);
 
+        PHIDP_PREPARSED_DATA pPreparsedData = nullptr;
+
         HidD_GetAttributes (hDeviceFile, &hidAttribs);
+
+        if (! HidD_GetPreparsedData (hDeviceFile, &pPreparsedData))
+        {
+          continue;
+        }
+
+//#ifdef DEBUG
+//            if (controller.bBluetooth)
+//              SK_ImGui_Warning (L"Bluetooth");
+//#endif
+
+        HIDP_CAPS                                caps = { };
+        HidP_GetCaps (          pPreparsedData, &caps);
+        HidD_FreePreparsedData (pPreparsedData);
   
         bool bSONY = 
           hidAttribs.VendorID == 0x54c;
@@ -515,6 +533,10 @@ void SK_HID_SetupCompatibleControllers (void)
               wszFileName, //Bluetooth_Base_UUID
                            L"{00001124-0000-1000-8000-00805f9b34fb}"
             );
+
+          controller.input_report.resize   (caps.InputReportByteLength);
+          controller.output_report.resize  (caps.OutputReportByteLength);
+          controller.feature_report.resize (caps.FeatureReportByteLength);
 
           switch (controller.devinfo.pid)
           {
@@ -570,6 +592,10 @@ void SK_HID_SetupCompatibleControllers (void)
               wszFileName, //Bluetooth_Base_UUID
                            L"{00001124-0000-1000-8000-00805f9b34fb}"
             );
+
+          controller.input_report.resize   (caps.InputReportByteLength);
+          controller.output_report.resize  (caps.OutputReportByteLength);
+          controller.feature_report.resize (caps.FeatureReportByteLength);
 
           switch (controller.devinfo.pid)
           {
@@ -1048,6 +1074,25 @@ XInputEnable (
     _XInputEnable (enable);
 }
 
+using SKX_GetInjectedPIDs_pfn = size_t (__stdcall *)( DWORD* pdwList,
+                                                      size_t capacity );
+
+#ifdef _M_IX86
+#define SK_BITNESS_A  "32"
+#define SK_BITNESS_W L"32"
+#else
+#define SK_BITNESS_A  "64"
+#define SK_BITNESS_W L"64"
+#endif
+
+const wchar_t*
+SK_Util_GetSKDllName (void)
+{
+  static const wchar_t
+         wszSpecialKDllName [16] = L"SpecialK" SK_BITNESS_W L".dll";
+  return wszSpecialKDllName;
+}
+
 bool
 SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive, bool& bNewData)
 {
@@ -1056,6 +1101,17 @@ SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive
       timeGetTime (),
     dwTimeoutInMs = (1000 * config.dwIdleTimeoutInSeconds);
 
+  static const wchar_t*
+    wszSpecialKDllName = SK_Util_GetSKDllName ();
+
+  static const bool bHasSpecialKDll =
+    PathFileExistsW (wszSpecialKDllName);
+
+  if (pDevice->state.input_timestamp == 0 && (! bActive))
+  {   pDevice->state.input_timestamp = dwTimeInMs;
+      pDevice->state.last_idle_check = dwTimeInMs;
+  }
+
   if (bActive)
   {
     pDevice->state.prev =
@@ -1063,19 +1119,69 @@ SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive
     pDevice->state.current.dwPacketNumber++;
 
     pDevice->state.input_timestamp = dwTimeInMs;
+    pDevice->state.last_idle_check = dwTimeInMs;
 
     bNewData = true;
   }
 
-  else if ( pDevice->state.input_timestamp != 0  &&
-              config.dwIdleTimeoutInSeconds > 30 &&
-                             dwTimeoutInMs < dwTimeInMs ) // Ignore invalid timeout values
+  else
   {
-    if (pDevice->state.input_timestamp < (dwTimeInMs - dwTimeoutInMs))
+    bNewData = false;
+
+    if (                  pDevice->bConnected &&
+                          pDevice->bWireless  &&
+         pDevice->state.input_timestamp !=  0 &&
+           config.dwIdleTimeoutInSeconds > 30 &&
+                           dwTimeoutInMs < dwTimeInMs ) // Ignore invalid timeout values
     {
-      if (SK_Bluetooth_PowerOffGamepad (pDevice))
+      if ( pDevice->state.input_timestamp < (dwTimeInMs - dwTimeoutInMs) &&
+           pDevice->state.last_idle_check < (dwTimeInMs - dwTimeoutInMs) )
       {
-        return false;
+        bool bIsSpecialKActive = false;
+
+        HMODULE hModSpecialK =
+          bHasSpecialKDll ? LoadLibraryW (wszSpecialKDllName)
+                          : nullptr;
+
+        if (hModSpecialK != nullptr)
+        {
+          const auto SKX_GetInjectedPIDs =
+                    (SKX_GetInjectedPIDs_pfn)GetProcAddress ( hModSpecialK,
+                    "SKX_GetInjectedPIDs" );
+
+          static DWORD                 dwInjectedPIDs [512] = { };
+          if ( nullptr       !=   SKX_GetInjectedPIDs )
+            bIsSpecialKActive = ( SKX_GetInjectedPIDs (
+                                       dwInjectedPIDs, 512) > 0 );
+
+          FreeLibrary (hModSpecialK);
+        }
+
+        if (bIsSpecialKActive)
+        {
+          //
+          // SK is actively injected into things, let's test for
+          //   idle state again in 1/8th of the idle input period...
+          //
+          //  This increases the frequency that idle input is tested,
+          //    but nothing significant given the typical timeout
+          //      (i.e. 7.5 minutes -> 0.9375 minutes).
+          //
+          pDevice->state.last_idle_check =
+            (dwTimeInMs - dwTimeoutInMs) / 8;
+          //
+          // Controller -is- idle, but SK is injected into a game, so all we can
+          //   do is schedule another idle test sooner (8x more often) than usual.
+          // 
+          //  If SK's injected game exits before the next scheduled test, then we
+          //    can finally power-off this gamepad!
+          //
+        }
+
+        else if (SK_Bluetooth_PowerOffGamepad (pDevice))
+        {
+          return false;
+        }
       }
     }
   }

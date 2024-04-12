@@ -235,8 +235,10 @@ SK_DualShock4_GetInputReportUSB (void *pGenericDev)
   hid_device_file_s* pDevice =
     (hid_device_file_s *)pGenericDev;
 
-  static thread_local uint8_t report [2048] = { };
-                  ZeroMemory (report, 2048);
+  ZeroMemory ( pDevice->input_report.data (),
+               pDevice->input_report.size () );
+
+  BYTE* report = pDevice->input_report.data ();
 
   // HID Input Report 0x1 (USB)
   report [0] = 0x1;
@@ -244,7 +246,7 @@ SK_DualShock4_GetInputReportUSB (void *pGenericDev)
   DWORD dwBytesRead = 0;
   bool  bNewData    = false;
 
-  if (ReadFile (pDevice->hDeviceFile, report, 2048, &dwBytesRead, nullptr))
+  if (ReadFile (pDevice->hDeviceFile, report, (DWORD)pDevice->input_report.size (), &dwBytesRead, nullptr))
   {
     SK_HID_DualShock4_GetStateDataUSB *pData =
       (SK_HID_DualShock4_GetStateDataUSB *)&report [1];
@@ -302,21 +304,27 @@ SK_DualShock4_GetInputReportUSB (void *pGenericDev)
 
     if (pData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
+    float LX    = pDevice->state.current.Gamepad.sThumbLX;
+    float LY    = pDevice->state.current.Gamepad.sThumbLY;
+    float normL = sqrtf ( LX*LX + LY*LY );
+
+    float RX    = pDevice->state.current.Gamepad.sThumbRX;
+    float RY    = pDevice->state.current.Gamepad.sThumbRY;
+    float normR = sqrtf ( RX*RX + RY*RY );
+
     if (! SK_XInput_UpdatePolledDataAndTimestamp (
-               pDevice, (
-               pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
-               pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
-      ( ( abs (pDevice->state.current.Gamepad.sThumbLX)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
-          abs (pDevice->state.current.Gamepad.sThumbLY)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
-          abs (pDevice->state.current.Gamepad.sThumbRX)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
-          abs (pDevice->state.current.Gamepad.sThumbRY)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
-               pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD     ||
-               pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD ) )
-                        ), bNewData          )
-         )
-      {
-        return false;
-      }
+                   pDevice, (
+                   pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
+                   pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
+                                                          normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
+                                                          normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
+                   pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD     ||
+                   pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD
+                            ), bNewData          )
+       )
+    {
+      return false;
+    }
 
 #if 0
     // Common to DualSense and DualShock4, but no representation in XInput
@@ -365,15 +373,17 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
   hid_device_file_s* pDevice =
     (hid_device_file_s *)pGenericDev;
 
-  static thread_local uint8_t report [4096] = { };
-                  ZeroMemory (report, 4096);
+  ZeroMemory ( pDevice->input_report.data (),
+               pDevice->input_report.size () );
+
+  BYTE* report = pDevice->input_report.data ();
 
   // HID Input Report 0x11 (Bluetooth)
   report [0] = 0x11;
 
   DWORD dwBytesRead = 0;
 
-  if (ReadFile (pDevice->hDeviceFile, report, 4096, &dwBytesRead, nullptr))
+  if (ReadFile (pDevice->hDeviceFile, report, (DWORD)pDevice->input_report.size (), &dwBytesRead, nullptr))
   {
     pDevice->state.current.Gamepad = { };
 
@@ -446,17 +456,23 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
 
       if (pData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
+      float LX    = pDevice->state.current.Gamepad.sThumbLX;
+      float LY    = pDevice->state.current.Gamepad.sThumbLY;
+      float normL = sqrtf ( LX*LX + LY*LY );
+
+      float RX    = pDevice->state.current.Gamepad.sThumbRX;
+      float RY    = pDevice->state.current.Gamepad.sThumbRY;
+      float normR = sqrtf ( RX*RX + RY*RY );
+
       if (! SK_XInput_UpdatePolledDataAndTimestamp (
-               pDevice, (
-               pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
-               pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
-      ( ( abs (pDevice->state.current.Gamepad.sThumbLX)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
-          abs (pDevice->state.current.Gamepad.sThumbLY)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
-          abs (pDevice->state.current.Gamepad.sThumbRX)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
-          abs (pDevice->state.current.Gamepad.sThumbRY)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
-               pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD     ||
-               pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD ) )
-                        ), bNewData                )
+                     pDevice, (
+                     pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
+                     pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
+                                                            normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
+                                                            normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
+                     pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD     ||
+                     pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD
+                              ), bNewData          )
          )
       {
         return false;
@@ -543,16 +559,22 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
 
       if (pSimpleData->ButtonHome     != 0) pDevice->state.current.Gamepad.wButtons |= XINPUT_GAMEPAD_GUIDE;
 
+      float LX    = pDevice->state.current.Gamepad.sThumbLX;
+      float LY    = pDevice->state.current.Gamepad.sThumbLY;
+      float normL = sqrtf ( LX*LX + LY*LY );
+
+      float RX    = pDevice->state.current.Gamepad.sThumbRX;
+      float RY    = pDevice->state.current.Gamepad.sThumbRY;
+      float normR = sqrtf ( RX*RX + RY*RY );
+
       if (! SK_XInput_UpdatePolledDataAndTimestamp (
                      pDevice, (
                      pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
                      pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
-            ( ( abs (pDevice->state.current.Gamepad.sThumbLX)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
-                abs (pDevice->state.current.Gamepad.sThumbLY)     > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
-                abs (pDevice->state.current.Gamepad.sThumbRX)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
-                abs (pDevice->state.current.Gamepad.sThumbRY)     > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
+                                                            normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
+                                                            normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
                      pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD     ||
-                     pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD ) )
+                     pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD
                               ), bNewData          )
          )
       {
@@ -573,12 +595,26 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
           return false;
         }
       }
+
+      if (                                                              bNewData &&
+           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
+           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+      {
+        SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+      }
     }
 
 #if 0
     // Common to DualSense and DualShock4, but no representation in XInput
     pData->ButtonPad != 0;
 #endif
+
+    if (                                                              bNewData &&
+         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
+         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+    {
+      SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+    }
 
     return bNewData;
   }

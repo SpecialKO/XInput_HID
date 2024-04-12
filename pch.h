@@ -40,4 +40,6 @@
 #include "hid_device.h"
 #include "bluetooth.h"
 
+#include <shellapi.h>
+
 #endif //PCH_H

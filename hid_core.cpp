@@ -200,7 +200,7 @@ hid_device_file_s::reconnect (HANDLE hNewDeviceFile)
   bConnected            = true;
   state.current         = { };
   state.prev            = { };
-  state.input_timestamp = timeGetTime ();
+  state.input_timestamp =  0;
 
   if (threads.input.hThread == INVALID_HANDLE_VALUE)
     SK_HID_SpawnInputReportThread (this);
