@@ -70,6 +70,7 @@ SK_XInput_NotifyDeviceArrival (void)
               for (auto& device : hid_devices)
               {
                 SK_Bluetooth_PowerOffGamepad (&device);
+                device.state.input_timestamp = timeGetTime ();
               }
 
               if (_XInputPowerOff != nullptr)
