@@ -81,19 +81,19 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <OutDir>C:\Users\amcol\Documents\My Mods\SpecialK\</OutDir>
+    <OutDir>C:\Users\andon\Documents\My Mods\SpecialK\</OutDir>
     <TargetName>XInput1_4</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <OutDir>C:\Users\amcol\Documents\My Mods\SpecialK\</OutDir>
+    <OutDir>C:\Users\andon\Documents\My Mods\SpecialK\</OutDir>
     <TargetName>XInput1_4</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>C:\Users\amcol\Documents\My Mods\SpecialK\</OutDir>
+    <OutDir>C:\Users\andon\Documents\My Mods\SpecialK\</OutDir>
     <TargetName>XInput1_4</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>C:\Users\amcol\Documents\My Mods\SpecialK\</OutDir>
+    <OutDir>C:\Users\andon\Documents\My Mods\SpecialK\</OutDir>
     <TargetName>XInput1_4</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">

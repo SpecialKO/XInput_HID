@@ -61,6 +61,39 @@ SK_XInput_NotifyDeviceArrival (void)
     {
       switch (message)
       {
+        case WM_POWERBROADCAST:
+        {
+          switch (wParam)
+          {
+            case PBT_APMSUSPEND:
+              //Put controller to sleep.
+              for (auto& device : hid_devices)
+              {
+                SK_Bluetooth_PowerOffGamepad (&device);
+              }
+
+              if (_XInputPowerOff != nullptr)
+              {
+                for (auto i = 0 ; i < 4 ; ++i)
+                {
+                  _XInputPowerOff (i);
+                }
+              }
+              break;
+
+            case PBT_APMRESUMEAUTOMATIC:
+            case PBT_APMRESUMESUSPEND:
+              //Reset idle input timer.
+              for (auto& device : hid_devices)
+              {
+                device.state.input_timestamp = timeGetTime ();
+              }
+              break;
+          }
+
+          return 0;
+        } break;
+
         case WM_DEVICECHANGE:
         {
           switch (wParam)
@@ -374,8 +407,10 @@ SK_XInput_NotifyDeviceArrival (void)
       NotificationFilter.dbcc_classguid  = GUID_DEVINTERFACE_HID;
 
       // It's technically unnecessary to register this, but not a bad idea
-      HDEVNOTIFY hDevNotify =
-        RegisterDeviceNotificationW (hWndDeviceListener, &NotificationFilter, DEVICE_NOTIFY_WINDOW_HANDLE);
+      HDEVNOTIFY   hDevNotify =
+        RegisterDeviceNotificationW      (hWndDeviceListener, &NotificationFilter,          DEVICE_NOTIFY_WINDOW_HANDLE);
+      HPOWERNOTIFY hPowNotify =
+        RegisterPowerSettingNotification (hWndDeviceListener, &GUID_SESSION_DISPLAY_STATUS, DEVICE_NOTIFY_WINDOW_HANDLE);
 
       do
       {
@@ -399,9 +434,10 @@ SK_XInput_NotifyDeviceArrival (void)
         }
       } while (true);//dwWaitStatus != ShutdownEvent);
 
-      UnregisterDeviceNotification (hDevNotify);
-      DestroyWindow                (hWndDeviceListener);
-      UnregisterClassW             (wnd_class.lpszClassName, wnd_class.hInstance);
+      UnregisterDeviceNotification       (hDevNotify);
+      UnregisterPowerSettingNotification (hPowNotify);
+      DestroyWindow                      (hWndDeviceListener);
+      UnregisterClassW                   (wnd_class.lpszClassName, wnd_class.hInstance);
     }
 
   //SK_CloseHandle (SK_XInputHot_NotifyEvent);

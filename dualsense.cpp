@@ -410,6 +410,186 @@ SK_DualSense_GetInputReportUSB (void *pGenericDev)
     float RY    = pDevice->state.current.Gamepad.sThumbRY;
     float normR = sqrtf ( RX*RX + RY*RY );
 
+    static bool bIsEdge            = false;
+    static HWND hWndLastForeground = 0;
+
+    HWND hWndForeground =
+      GetForegroundWindow ();
+
+    if (hWndForeground != hWndLastForeground)
+    {
+      bIsEdge            = false;
+      hWndLastForeground = hWndForeground;
+
+      DWORD                                      dwPid = 0;
+      GetWindowThreadProcessId (hWndForeground, &dwPid);
+
+      std::string name;
+
+      HANDLE hProcess =
+        OpenProcess (PROCESS_QUERY_LIMITED_INFORMATION, FALSE, dwPid);
+
+      if (hProcess != 0)
+      {
+        DWORD buffSize = 1023;
+        CHAR  buffer    [1024] = { };
+
+        if (QueryFullProcessImageNameA (hProcess, 0, buffer, &buffSize))
+        {
+          bIsEdge = StrStrIA (buffer, "edge");
+        }
+
+        CloseHandle (hProcess);
+      }
+    }
+
+    if (bIsEdge)
+    {
+      SetFocus (hWndForeground);
+
+      if ((pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT) && (! (pDevice->state.prev.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_RIGHT)))
+      {
+        BYTE bScancode =
+          (BYTE)MapVirtualKey (VK_RIGHT, 0);
+
+        DWORD dwFlags =
+          ( bScancode & 0xE0 ) == 0   ?
+            static_cast <DWORD> (0x0) :
+            static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+
+        keybd_event (VK_RIGHT, bScancode, dwFlags,                   0);
+        keybd_event (VK_RIGHT, bScancode, dwFlags | KEYEVENTF_KEYUP, 0);
+      }
+
+      else if ((pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT) && (! (pDevice->state.prev.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_LEFT)))
+      {
+        BYTE bScancode =
+          (BYTE)MapVirtualKey (VK_LEFT, 0);
+
+        DWORD dwFlags =
+          ( bScancode & 0xE0 ) == 0   ?
+            static_cast <DWORD> (0x0) :
+            static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+
+        keybd_event (VK_LEFT, bScancode, dwFlags,                   0);
+        keybd_event (VK_LEFT, bScancode, dwFlags | KEYEVENTF_KEYUP, 0);
+      }
+
+      else if ((pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP) && (! (pDevice->state.prev.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_UP)))
+      {
+        BYTE bScancode =
+          (BYTE)MapVirtualKey (VK_UP, 0);
+
+        DWORD dwFlags =
+          ( bScancode & 0xE0 ) == 0   ?
+            static_cast <DWORD> (0x0) :
+            static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+
+        keybd_event (VK_UP, bScancode, dwFlags,                   0);
+        keybd_event (VK_UP, bScancode, dwFlags | KEYEVENTF_KEYUP, 0);
+      }
+
+      else if ((pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN) && (! (pDevice->state.prev.Gamepad.wButtons & XINPUT_GAMEPAD_DPAD_DOWN)))
+      {
+        BYTE bScancode =
+          (BYTE)MapVirtualKey (VK_DOWN, 0);
+
+        DWORD dwFlags =
+          ( bScancode & 0xE0 ) == 0   ?
+            static_cast <DWORD> (0x0) :
+            static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+
+        keybd_event (VK_DOWN, bScancode, dwFlags,                   0);
+        keybd_event (VK_DOWN, bScancode, dwFlags | KEYEVENTF_KEYUP, 0);
+      }
+
+      else if ((pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A) && (! (pDevice->state.prev.Gamepad.wButtons & XINPUT_GAMEPAD_A)))
+      {
+        BYTE bScancode =
+          (BYTE)MapVirtualKey (VK_SPACE, 0);
+
+        DWORD dwFlags =
+          ( bScancode & 0xE0 ) == 0   ?
+            static_cast <DWORD> (0x0) :
+            static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+
+        keybd_event (VK_SPACE, bScancode, dwFlags,                   0);
+        keybd_event (VK_SPACE, bScancode, dwFlags | KEYEVENTF_KEYUP, 0);
+      }
+
+      else if ((pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_Y) && (! (pDevice->state.prev.Gamepad.wButtons & XINPUT_GAMEPAD_Y)))
+      {
+        BYTE bScancode =
+          (BYTE)MapVirtualKey ('F', 0);
+
+        DWORD dwFlags =
+          ( bScancode & 0xE0 ) == 0   ?
+            static_cast <DWORD> (0x0) :
+            static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+
+        keybd_event ('F', bScancode, dwFlags,                   0);
+        keybd_event ('F', bScancode, dwFlags | KEYEVENTF_KEYUP, 0);
+      }
+
+      else if ((pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_X) && (! (pDevice->state.prev.Gamepad.wButtons & XINPUT_GAMEPAD_X)))
+      {
+        POINT          ptCursor = { };
+        GetCursorPos (&ptCursor);
+
+        INPUT input [2]            = {         };
+              input [0].type       = INPUT_MOUSE;
+              input [0].mi.dx      = 0;
+              input [0].mi.dy      = 0;
+              input [0].mi.dwFlags = MOUSEEVENTF_LEFTDOWN;
+
+        SendInput (1, input, sizeof (INPUT));
+      }
+
+      else if ((pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER) && (! (pDevice->state.prev.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER)))
+      {
+        BYTE bScancode0 =
+          (BYTE)MapVirtualKey (VK_SHIFT, 0);
+        BYTE bScancode1 =
+          (BYTE)MapVirtualKey ('N', 0);
+
+        DWORD dwFlags0 =
+          ( bScancode0 & 0xE0 ) == 0   ?
+            static_cast <DWORD> (0x0)  :
+            static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+        DWORD dwFlags1 =
+          ( bScancode1 & 0xE0 ) == 0   ?
+            static_cast <DWORD> (0x0)  :
+            static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+
+        keybd_event (VK_SHIFT, bScancode0, dwFlags0,                   0);
+        keybd_event ('N',      bScancode1, dwFlags1,                   0);
+        keybd_event (VK_SHIFT, bScancode0, dwFlags0 | KEYEVENTF_KEYUP, 0);
+        keybd_event ('N',      bScancode1, dwFlags1 | KEYEVENTF_KEYUP, 0);
+      }
+
+      else if ((pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER) && (! (pDevice->state.prev.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_SHOULDER)))
+      {
+        BYTE bScancode0 =
+          (BYTE)MapVirtualKey (VK_SHIFT, 0);
+        BYTE bScancode1 =
+          (BYTE)MapVirtualKey ('P', 0);
+
+        DWORD dwFlags0 =
+          ( bScancode0 & 0xE0 ) == 0   ?
+            static_cast <DWORD> (0x0)  :
+            static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+        DWORD dwFlags1 =
+          ( bScancode1 & 0xE0 ) == 0   ?
+            static_cast <DWORD> (0x0)  :
+            static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+
+        keybd_event (VK_SHIFT, bScancode0, dwFlags0,                   0);
+        keybd_event ('P',      bScancode1, dwFlags1,                   0);
+        keybd_event (VK_SHIFT, bScancode0, dwFlags0 | KEYEVENTF_KEYUP, 0);
+        keybd_event ('P',      bScancode1, dwFlags1 | KEYEVENTF_KEYUP, 0);
+      }
+    }
+
     if (! SK_XInput_UpdatePolledDataAndTimestamp (
                    pDevice, (
                    pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
