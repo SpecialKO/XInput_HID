@@ -796,6 +796,9 @@ XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
 
     if (pNewestDevice != nullptr)
     {
+      const bool bNew =
+          ( pState->dwPacketNumber != pNewestDevice->state.current.dwPacketNumber );
+
       pState->Gamepad.bLeftTrigger  = pNewestDevice->state.current.Gamepad.bLeftTrigger;
       pState->Gamepad.bRightTrigger = pNewestDevice->state.current.Gamepad.bRightTrigger;
       pState->Gamepad.sThumbLX      = pNewestDevice->state.current.Gamepad.sThumbLX;
@@ -804,6 +807,15 @@ XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
       pState->Gamepad.sThumbRY      = pNewestDevice->state.current.Gamepad.sThumbRY;
       pState->Gamepad.wButtons      = pNewestDevice->state.current.Gamepad.wButtons;
       pState->dwPacketNumber        = pNewestDevice->state.current.dwPacketNumber;
+
+      if (config.bSpecialCrossActivatesScreenSaver)
+      {
+        if ( (pState->Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
+             (pState->Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+        {
+          SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+        }
+      }
 
       // Give most recently active device a +75 ms advantage,
       //   we may have the same device connected over two
