@@ -1,5 +1,6 @@
 // dllmain.cpp : Defines the entry point for the DLL application.
 #include "pch.h"
+#include <atlbase.h>
 
 #pragma comment (lib, "Shlwapi.lib")
 
@@ -44,8 +45,6 @@ DllMain ( HMODULE hModule,
                        nullptr, 0x0, nullptr )
       );
 #endif
-
-      //DisableThreadLibraryCalls (hModule);
     } break;
 
     case DLL_THREAD_ATTACH:

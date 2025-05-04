@@ -66,18 +66,21 @@ SK_XInput_NotifyDeviceArrival (void)
           switch (wParam)
           {
             case PBT_APMSUSPEND:
-              //Put controller to sleep.
-              for (auto& device : hid_devices)
+              if (config.bPowerOffControllersBeforeSleep)
               {
-                SK_Bluetooth_PowerOffGamepad (&device);
-                device.state.input_timestamp = timeGetTime ();
-              }
-
-              if (_XInputPowerOff != nullptr)
-              {
-                for (auto i = 0 ; i < 4 ; ++i)
+                //Put controller to sleep.
+                for (auto& device : hid_devices)
                 {
-                  _XInputPowerOff (i);
+                  SK_Bluetooth_PowerOffGamepad (&device);
+                  device.state.input_timestamp = timeGetTime ();
+                }
+
+                if (_XInputPowerOff != nullptr)
+                {
+                  for (auto i = 0 ; i < XUSER_MAX_COUNT ; ++i)
+                  {
+                    _XInputPowerOff (i);
+                  }
                 }
               }
               break;
@@ -705,6 +708,98 @@ XInput_HID_InitThread (LPVOID)
 
   hModRealXInput14 = hMod;
 
+  CloseHandle (
+    CreateThread ( nullptr, 0x0, [](LPVOID)->DWORD
+    {
+      static CHandle        hkKeyChangeEvent;
+             CRegKey        hkSKInput;
+      if ( ERROR_SUCCESS == hkSKInput.Open (
+             HKEY_CURRENT_USER, LR"(Software\Kaldaien\SKInput)",               KEY_ALL_ACCESS ) ||
+           ERROR_SUCCESS == hkSKInput.Create (
+             HKEY_CURRENT_USER, LR"(Software\Kaldaien\SKInput)", nullptr, 0UL, KEY_ALL_ACCESS )
+         )
+      {
+        auto GetDWORDFromRegistry = [](CRegKey& key, const wchar_t* wszValueName, DWORD& dwValue) -> HANDLE
+        {
+          if (ERROR_SUCCESS != key.QueryDWORDValue (wszValueName, dwValue))
+                               key.SetDWORDValue   (wszValueName, dwValue);
+
+          if (hkKeyChangeEvent.m_h == 0)
+          {   hkKeyChangeEvent.m_h =
+                CreateEvent (nullptr, TRUE, FALSE, nullptr);
+
+            if ( ERROR_SUCCESS ==
+                   RegNotifyChangeKeyValue (
+                             key, FALSE, REG_NOTIFY_CHANGE_LAST_SET,
+                             hkKeyChangeEvent, TRUE )
+               )
+            {
+              return
+                hkKeyChangeEvent;
+            }
+
+            CloseHandle (
+              std::exchange (hkKeyChangeEvent.m_h, (HANDLE)0)
+            );
+          }
+
+          return
+            hkKeyChangeEvent;
+        };
+
+        const wchar_t* names [] = {
+          L"PowerOffChord",
+          L"ScreenSaverChord",
+          L"SecondsBeforeIdlePowerOff"
+        };
+        DWORD* values [] = {
+          &config.bSpecialTriangleShutsOff,
+          &config.bSpecialCrossActivatesScreenSaver,
+          &config.dwIdleTimeoutInSeconds
+        };
+        HANDLE events [] = {
+          GetDWORDFromRegistry (hkSKInput, names [0], *values [0]),
+          GetDWORDFromRegistry (hkSKInput, names [1], *values [1]),
+          GetDWORDFromRegistry (hkSKInput, names [2], *values [2]),
+        };
+
+        constexpr auto
+          num_vals = 
+            sizeof (values) /
+            sizeof (values [0]);
+
+        while ( WAIT_OBJECT_0 ==
+                  WaitForSingleObject (events [0], INFINITE) )
+        {
+          RegNotifyChangeKeyValue (
+            hkSKInput, FALSE, REG_NOTIFY_CHANGE_LAST_SET,
+            hkKeyChangeEvent, TRUE
+          );
+
+          for ( auto val_idx = 0 ; val_idx < num_vals ; ++val_idx )
+          {
+            hkSKInput.QueryDWORDValue (
+                names [val_idx],
+              *values [val_idx]
+            );
+          }
+
+          ResetEvent (hkKeyChangeEvent);
+        }
+      
+        // TODO: Import code from SK's HID device enumerator to
+        //       disconnect all controllers the Steam client has open
+        //hkSKInput.QueryDWORDValue (
+        //         L"SteamInputKillSwitchChord",
+        //  config.dwSteamInputKillSwitchChord
+        //);
+      }
+
+      // Will never happen...
+      return 0;
+    }, nullptr, 0x0, nullptr )
+  );
+
   return 0;
 }
 
@@ -1177,10 +1272,10 @@ SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive
   {
     bNewData = false;
 
-    if (                  pDevice->bConnected &&
-                          pDevice->bWireless  &&
-         pDevice->state.input_timestamp !=  0 &&
-           config.dwIdleTimeoutInSeconds > 30 &&
+    if (                   pDevice->bConnected &&
+                           pDevice->bWireless  &&
+         pDevice->state.input_timestamp !=   0 &&
+           config.dwIdleTimeoutInSeconds >= 30 &&
                            dwTimeoutInMs < dwTimeInMs ) // Ignore invalid timeout values
     {
       if ( pDevice->state.input_timestamp < (dwTimeInMs - dwTimeoutInMs) &&
