@@ -326,6 +326,16 @@ SK_DualShock4_GetInputReportUSB (void *pGenericDev)
       return false;
     }
 
+    if (config.bSpecialCrossActivatesScreenSaver)
+    {
+      if (                                                              bNewData &&
+           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
+           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+      {
+        SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+      }
+    }
+
 #if 0
     // Common to DualSense and DualShock4, but no representation in XInput
     pData->ButtonPad != 0;
@@ -596,11 +606,14 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
         }
       }
 
-      if (                                                              bNewData &&
-           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
-           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+      if (config.bSpecialCrossActivatesScreenSaver)
       {
-        SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+        if (                                                              bNewData &&
+             (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
+             (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+        {
+          SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+        }
       }
     }
 

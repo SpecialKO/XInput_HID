@@ -698,11 +698,14 @@ SK_DualSense_GetInputReportUSB (void *pGenericDev)
     //  pDevice->buttons [18].state = pData->ButtonRightPaddle   != 0;
     //}
 
-    if (                                                              bNewData &&
-         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
-         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+    if (config.bSpecialCrossActivatesScreenSaver)
     {
-      SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+      if (                                                              bNewData &&
+           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
+           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+      {
+        SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+      }
     }
 
     return bNewData;
@@ -967,23 +970,29 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
       }
     }
 
-    if (                                                              bNewData &&
-         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_Y    ) != 0 &&
-         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+    if (config.bSpecialTriangleShutsOff)
     {
-      if (SK_Bluetooth_PowerOffGamepad (pDevice))
+      if (                                                              bNewData &&
+           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_Y    ) != 0 &&
+           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
       {
-        pDevice->disconnect ();
+        if (SK_Bluetooth_PowerOffGamepad (pDevice))
+        {
+          pDevice->disconnect ();
 
-        return false;
+          return false;
+        }
       }
     }
 
-    if (                                                              bNewData &&
-         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
-         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+    if (config.bSpecialCrossActivatesScreenSaver)
     {
-      SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+      if (                                                             bNewData &&
+          (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
+          (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+      {
+        SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+      }
     }
 
     return bNewData;
