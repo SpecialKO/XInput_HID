@@ -714,9 +714,9 @@ XInput_HID_InitThread (LPVOID)
       static CHandle        hkKeyChangeEvent;
              CRegKey        hkSKInput;
       if ( ERROR_SUCCESS == hkSKInput.Open (
-             HKEY_CURRENT_USER, LR"(Software\Kaldaien\SKInput)",               KEY_ALL_ACCESS ) ||
+             HKEY_CURRENT_USER, LR"(Software\Kaldaien\Special K\Input)",               KEY_ALL_ACCESS ) ||
            ERROR_SUCCESS == hkSKInput.Create (
-             HKEY_CURRENT_USER, LR"(Software\Kaldaien\SKInput)", nullptr, 0UL, KEY_ALL_ACCESS )
+             HKEY_CURRENT_USER, LR"(Software\Kaldaien\Special K\Input)", nullptr, 0UL, KEY_ALL_ACCESS )
          )
       {
         auto GetDWORDFromRegistry = [](CRegKey& key, const wchar_t* wszValueName, DWORD& dwValue) -> HANDLE
