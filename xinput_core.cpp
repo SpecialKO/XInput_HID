@@ -750,17 +750,20 @@ XInput_HID_InitThread (LPVOID)
         const wchar_t* names [] = {
           L"PowerOffChord",
           L"ScreenSaverChord",
-          L"SecondsBeforeIdlePowerOff"
+          L"SecondsBeforeIdlePowerOff",
+          L"EnableControllersInApps"
         };
         DWORD* values [] = {
           &config.bSpecialTriangleShutsOff,
           &config.bSpecialCrossActivatesScreenSaver,
-          &config.dwIdleTimeoutInSeconds
+          &config.dwIdleTimeoutInSeconds,
+          &config.bEnableControllerInput,
         };
         HANDLE events [] = {
           GetDWORDFromRegistry (hkSKInput, names [0], *values [0]),
           GetDWORDFromRegistry (hkSKInput, names [1], *values [1]),
           GetDWORDFromRegistry (hkSKInput, names [2], *values [2]),
+          GetDWORDFromRegistry (hkSKInput, names [3], *values [3]),
         };
 
         constexpr auto
@@ -903,12 +906,12 @@ XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
       pState->Gamepad.wButtons      = pNewestDevice->state.current.Gamepad.wButtons;
       pState->dwPacketNumber        = pNewestDevice->state.current.dwPacketNumber;
 
-      if (config.bSpecialCrossActivatesScreenSaver)
+      if (config.bSpecialCrossActivatesScreenSaver && config.bEnableControllerInput)
       {
         if ( (pState->Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
              (pState->Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
         {
-          SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+          SendMessageTimeout (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0, SMTO_BLOCK, INFINITE, nullptr);
         }
       }
 

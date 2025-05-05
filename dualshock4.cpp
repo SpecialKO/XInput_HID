@@ -326,13 +326,13 @@ SK_DualShock4_GetInputReportUSB (void *pGenericDev)
       return false;
     }
 
-    if (config.bSpecialCrossActivatesScreenSaver)
+    if (config.bSpecialCrossActivatesScreenSaver && config.bEnableControllerInput)
     {
       if (                                                              bNewData &&
            (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
            (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
       {
-        SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+        SendMessageTimeout (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0, SMTO_BLOCK, INFINITE, nullptr);
       }
     }
 
@@ -592,7 +592,7 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
       }
     }
 
-    if (config.bSpecialTriangleShutsOff)
+    if (config.bSpecialTriangleShutsOff && config.bEnableControllerInput)
     {
       if (                                                              bNewData &&
            (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_Y    ) != 0 &&
@@ -606,13 +606,13 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
         }
       }
 
-      if (config.bSpecialCrossActivatesScreenSaver)
+      if (config.bSpecialCrossActivatesScreenSaver && config.bEnableControllerInput)
       {
         if (                                                              bNewData &&
              (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
              (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
         {
-          SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+          SendMessageTimeout (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0, SMTO_BLOCK, INFINITE, nullptr);
         }
       }
     }
@@ -622,11 +622,14 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
     pData->ButtonPad != 0;
 #endif
 
-    if (                                                              bNewData &&
-         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
-         (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+    if (config.bSpecialCrossActivatesScreenSaver && config.bEnableControllerInput)
     {
-      SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+      if (                                                              bNewData &&
+           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
+           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+      {
+        SendMessageTimeout (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0, SMTO_BLOCK, INFINITE, nullptr);
+      }
     }
 
     return bNewData;

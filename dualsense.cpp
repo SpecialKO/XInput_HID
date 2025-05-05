@@ -706,13 +706,13 @@ SK_DualSense_GetInputReportUSB (void *pGenericDev)
     //  pDevice->buttons [18].state = pData->ButtonRightPaddle   != 0;
     //}
 
-    if (config.bSpecialCrossActivatesScreenSaver)
+    if (config.bSpecialCrossActivatesScreenSaver && config.bEnableControllerInput)
     {
       if (                                                              bNewData &&
            (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
            (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
       {
-        SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+        SendMessageTimeout (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0, SMTO_BLOCK, INFINITE, nullptr);
       }
     }
 
@@ -988,7 +988,7 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
       }
     }
 
-    if (config.bSpecialTriangleShutsOff)
+    if (config.bSpecialTriangleShutsOff && config.bEnableControllerInput)
     {
       if (                                                              bNewData &&
            (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_Y    ) != 0 &&
@@ -1003,13 +1003,13 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
       }
     }
 
-    if (config.bSpecialCrossActivatesScreenSaver)
+    if (config.bSpecialCrossActivatesScreenSaver && config.bEnableControllerInput)
     {
       if (                                                             bNewData &&
           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
       {
-        SendMessage (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0);
+        SendMessageTimeout (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0, SMTO_BLOCK, INFINITE, nullptr);
       }
     }
 

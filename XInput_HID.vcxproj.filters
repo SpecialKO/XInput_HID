@@ -62,6 +62,9 @@
     <ClCompile Include="hid_core.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="steam_util.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="XInput.def">

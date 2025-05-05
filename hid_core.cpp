@@ -48,7 +48,7 @@ SK_HID_InputReportThread (LPVOID user)
     if (dwWaitState == _PollInput)
     {
       if (pDevice->GetInputReport ())
-      {      
+      {
         if ( _PollInput ==
                WaitForSingleObject (pDevice->threads.input.hDataRequest, 0) )
         {

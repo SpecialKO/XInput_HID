@@ -9,4 +9,5 @@ struct config_s {
   DWORD   bSpecialCrossActivatesScreenSaver   = FALSE;
   DWORD   bPowerOffControllersBeforeSleep     =  TRUE;
   DWORD   dwSteamInputKillSwitchChord         =     0;
+  DWORD   bEnableControllerInput              =  TRUE;
 } extern config;
