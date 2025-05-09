@@ -10,6 +10,8 @@
 #include <algorithm>
 #include <format>
 
+#include <TlHelp32.h>
+
 #pragma comment (lib, "winmm.lib")
 
 bool _GetInputReportStub (void*) { return false; }
@@ -751,19 +753,22 @@ XInput_HID_InitThread (LPVOID)
           L"PowerOffChord",
           L"ScreenSaverChord",
           L"SecondsBeforeIdlePowerOff",
-          L"EnableControllersInApps"
+          L"EnableControllersInApps",
+          L"GamepadsDeactivateScreenSaver",
         };
         DWORD* values [] = {
           &config.bSpecialTriangleShutsOff,
           &config.bSpecialCrossActivatesScreenSaver,
           &config.dwIdleTimeoutInSeconds,
           &config.bEnableControllerInput,
+          &config.bDeactivateScreensaverOnGamepadInput,
         };
         HANDLE events [] = {
           GetDWORDFromRegistry (hkSKInput, names [0], *values [0]),
           GetDWORDFromRegistry (hkSKInput, names [1], *values [1]),
           GetDWORDFromRegistry (hkSKInput, names [2], *values [2]),
           GetDWORDFromRegistry (hkSKInput, names [3], *values [3]),
+          GetDWORDFromRegistry (hkSKInput, names [4], *values [4]),
         };
 
         constexpr auto
@@ -1266,11 +1271,70 @@ SK_Util_GetSKDllName (void)
   return wszSpecialKDllName;
 }
 
+BOOL
+WINAPI
+SK_Util_TerminateProcesses (const wchar_t* wszProcName, bool all) noexcept
+{
+  BOOL killed = FALSE;
+
+  PROCESSENTRY32W pe32 = { };
+
+  CHandle hProcSnap (
+    CreateToolhelp32Snapshot ( TH32CS_SNAPPROCESS,
+                                 0 )
+  );
+
+  if ((intptr_t)hProcSnap.m_h <= 0)
+    return false;
+
+  pe32.dwSize =
+    sizeof (PROCESSENTRY32W);
+
+  if (! Process32FirstW ( hProcSnap,
+                            &pe32    )
+     )
+  {
+    return false;
+  }
+
+  do
+  {
+    if (! _wcsicmp ( wszProcName,
+                       pe32.szExeFile )
+       )
+    {
+      CHandle hProc (
+        OpenProcess (PROCESS_TERMINATE, FALSE, pe32.th32ProcessID)
+      );
+
+      if ((intptr_t)hProc.m_h > 0)
+      {
+        killed =
+          TerminateProcess (hProc, 0x0) != FALSE;
+
+        if ((! all) && killed)
+        {
+          return TRUE;
+        }
+      }
+    }
+  } while ( Process32NextW ( hProcSnap,
+                               &pe32    )
+          );
+
+  return killed != FALSE;
+}
+
+DWORD SK_Input_LastChordActivationTime = 0;
+
 bool
 SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive, bool& bNewData)
 {
   if (SK_HID_ProcessChordInput (pDevice))
+  {
+    SK_Input_LastChordActivationTime = timeGetTime ();
     return false;
+  }
 
   const DWORD
     dwTimeInMs =
@@ -1288,8 +1352,26 @@ SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive
       pDevice->state.last_idle_check = dwTimeInMs;
   }
 
-  if (bActive)
+  if (bActive && memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)) != 0)
   {
+    if (config.bDeactivateScreensaverOnGamepadInput)
+    {
+      if ( (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) == 0 &&
+           (pDevice->state.prev.Gamepad.wButtons    & XINPUT_GAMEPAD_GUIDE) == 0 )
+      {
+        if (dwTimeInMs > SK_Input_LastChordActivationTime + 250UL)
+        {
+          BOOL                                                  bScreensaverActive = FALSE;
+          SystemParametersInfoA (SPI_GETSCREENSAVERRUNNING, 0, &bScreensaverActive, 0);
+
+          if (bScreensaverActive)
+          {
+            SK_Util_TerminateProcesses (L"scrnsave.scr", true);
+          }
+        }
+      }
+    }
+
     pDevice->state.prev =
     pDevice->state.current;
     pDevice->state.current.dwPacketNumber++;
