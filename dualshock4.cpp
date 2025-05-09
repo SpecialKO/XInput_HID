@@ -326,16 +326,6 @@ SK_DualShock4_GetInputReportUSB (void *pGenericDev)
       return false;
     }
 
-    if (config.bSpecialCrossActivatesScreenSaver && config.bEnableControllerInput)
-    {
-      if (                                                              bNewData &&
-           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
-           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
-      {
-        SendMessageTimeout (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0, SMTO_BLOCK, INFINITE, nullptr);
-      }
-    }
-
 #if 0
     // Common to DualSense and DualShock4, but no representation in XInput
     pData->ButtonPad != 0;
@@ -592,45 +582,10 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
       }
     }
 
-    if (config.bSpecialTriangleShutsOff && config.bEnableControllerInput)
-    {
-      if (                                                              bNewData &&
-           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_Y    ) != 0 &&
-           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
-      {
-        if (SK_Bluetooth_PowerOffGamepad (pDevice))
-        {
-          pDevice->disconnect ();
-
-          return false;
-        }
-      }
-
-      if (config.bSpecialCrossActivatesScreenSaver && config.bEnableControllerInput)
-      {
-        if (                                                              bNewData &&
-             (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
-             (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
-        {
-          SendMessageTimeout (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0, SMTO_BLOCK, INFINITE, nullptr);
-        }
-      }
-    }
-
 #if 0
     // Common to DualSense and DualShock4, but no representation in XInput
     pData->ButtonPad != 0;
 #endif
-
-    if (config.bSpecialCrossActivatesScreenSaver && config.bEnableControllerInput)
-    {
-      if (                                                              bNewData &&
-           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
-           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
-      {
-        SendMessageTimeout (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0, SMTO_BLOCK, INFINITE, nullptr);
-      }
-    }
 
     return bNewData;
   }

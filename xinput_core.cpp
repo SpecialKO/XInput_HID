@@ -906,10 +906,36 @@ XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
       pState->Gamepad.wButtons      = pNewestDevice->state.current.Gamepad.wButtons;
       pState->dwPacketNumber        = pNewestDevice->state.current.dwPacketNumber;
 
-      if (config.bSpecialCrossActivatesScreenSaver && config.bEnableControllerInput)
+      if (config.bSpecialCrossActivatesScreenSaver && config.bEnableControllerInput && bNew)
       {
-        if ( (pState->Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
-             (pState->Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+        DWORD dwButtons = 
+          pState->Gamepad.wButtons;
+
+        if (( (float)(pState->Gamepad.bLeftTrigger - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) /
+              (float)(                         255 - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) ) >= 1.0f)
+        {
+          dwButtons |= XINPUT_GAMEPAD_LEFT_TRIGGER;
+        }
+
+        if (( (float)(pState->Gamepad.bRightTrigger - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) /
+              (float)(                          255 - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) ) >= 1.0f)
+        {
+          dwButtons |= XINPUT_GAMEPAD_RIGHT_TRIGGER;
+        }
+
+        DWORD dwMask = 0;
+
+        switch (config.bSpecialCrossActivatesScreenSaver)
+        {
+          case 1: dwMask = XINPUT_GAMEPAD_A;       break;
+          case 3: dwMask = XINPUT_GAMEPAD_DPAD_UP; break; // We remapped this so that 1 could mean default for backwards compat
+          default:
+            dwMask = config.bSpecialCrossActivatesScreenSaver;
+            break;
+        }
+
+        if ( (dwButtons & dwMask              ) != 0 &&
+             (dwButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
         {
           SendMessageTimeout (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0, SMTO_BLOCK, INFINITE, nullptr);
         }
@@ -1243,6 +1269,9 @@ SK_Util_GetSKDllName (void)
 bool
 SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive, bool& bNewData)
 {
+  if (SK_HID_ProcessChordInput (pDevice))
+    return false;
+
   const DWORD
     dwTimeInMs =
       timeGetTime (),

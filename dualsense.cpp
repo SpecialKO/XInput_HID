@@ -355,7 +355,7 @@ void SK_DualSense_HardCodedEdgeStuff (hid_device_file_s* pDevice)
 
       if (QueryFullProcessImageNameA (hProcess, 0, buffer, &buffSize))
       {                                        // Special behavior for Steam versions of SKIF
-        bIsEdge = StrStrIA (buffer, "edge") && PathFileExists (L"steam_appid.txt");
+        bIsEdge = StrStrIA (buffer, "edge");// && PathFileExists (L"steam_appid.txt");
       }
 
       CloseHandle (hProcess);
@@ -706,16 +706,6 @@ SK_DualSense_GetInputReportUSB (void *pGenericDev)
     //  pDevice->buttons [18].state = pData->ButtonRightPaddle   != 0;
     //}
 
-    if (config.bSpecialCrossActivatesScreenSaver && config.bEnableControllerInput)
-    {
-      if (                                                              bNewData &&
-           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
-           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
-      {
-        SendMessageTimeout (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0, SMTO_BLOCK, INFINITE, nullptr);
-      }
-    }
-
     return bNewData;
   }
 
@@ -985,31 +975,6 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
          )
       {
         return false;
-      }
-    }
-
-    if (config.bSpecialTriangleShutsOff && config.bEnableControllerInput)
-    {
-      if (                                                              bNewData &&
-           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_Y    ) != 0 &&
-           (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
-      {
-        if (SK_Bluetooth_PowerOffGamepad (pDevice))
-        {
-          pDevice->disconnect ();
-
-          return false;
-        }
-      }
-    }
-
-    if (config.bSpecialCrossActivatesScreenSaver && config.bEnableControllerInput)
-    {
-      if (                                                             bNewData &&
-          (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_A    ) != 0 &&
-          (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
-      {
-        SendMessageTimeout (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0, SMTO_BLOCK, INFINITE, nullptr);
       }
     }
 
