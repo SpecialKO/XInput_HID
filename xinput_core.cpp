@@ -1402,7 +1402,7 @@ SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive
       if ( (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) == 0 &&
            (pDevice->state.prev.Gamepad.wButtons    & XINPUT_GAMEPAD_GUIDE) == 0 )
       {
-        if (dwTimeInMs > SK_Input_LastChordActivationTime + 250UL)
+        if (dwTimeInMs > SK_Input_LastChordActivationTime + 250UL && config.bDeactivateScreensaverOnGamepadInput)
         {
           BOOL                                                  bScreensaverActive = FALSE;
           SystemParametersInfoA (SPI_GETSCREENSAVERRUNNING, 0, &bScreensaverActive, 0);
