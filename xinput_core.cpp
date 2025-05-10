@@ -842,14 +842,22 @@ XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
     ;
 
   DWORD dwState;
+  
+  // Internally call GetStateEx so we can use the guide button.
+  XINPUT_STATE_EX state_ex = {};
 
   dwState = SK_XInput_SlotStatus [dwUserIndex] ?
-    _XInputGetState (dwUserIndex, pState)      : ERROR_DEVICE_NOT_CONNECTED;
+    _XInputGetStateEx (dwUserIndex, &state_ex)      : ERROR_DEVICE_NOT_CONNECTED;
 
   if (SK_XInput_SlotStatus [dwUserIndex] && dwState == ERROR_DEVICE_NOT_CONNECTED)
       SK_XInput_SlotStatus [dwUserIndex] = false;
 
   DWORD first_unused_slot = 0;
+
+  if (dwState != ERROR_DEVICE_NOT_CONNECTED)
+  {
+    memcpy (pState, &state_ex, sizeof (XINPUT_STATE));
+  }
 
   if (      SK_XInput_SlotStatus [ 0 ])
   { if (    SK_XInput_SlotStatus [ 1 ])
@@ -956,6 +964,10 @@ XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
     if (bSuccess)
       return ERROR_SUCCESS;
   }
+  else
+  {
+    SK_HID_ProcessChordInput (*(XINPUT_STATE *)pState, nullptr);
+  }
 
   return dwState;
 }
@@ -1037,6 +1049,10 @@ XInputGetStateEx (DWORD dwUserIndex, XINPUT_STATE_EX *pState)
 
     if (bSuccess)
       return ERROR_SUCCESS;
+  }
+  else
+  {
+    SK_HID_ProcessChordInput (*(XINPUT_STATE *)pState, nullptr);
   }
 
   return dwState;
@@ -1330,7 +1346,7 @@ DWORD SK_Input_LastChordActivationTime = 0;
 bool
 SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive, bool& bNewData)
 {
-  if (SK_HID_ProcessChordInput (pDevice))
+  if (SK_HID_ProcessChordInput (pDevice->state.current, pDevice))
   {
     SK_Input_LastChordActivationTime = timeGetTime ();
     return false;
@@ -1377,10 +1393,10 @@ SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive
     const float normL   = sqrtf ( LX*LX + LY*LY );
     const float normR   = sqrtf ( RX*RX + RY*RY );
 
-    if ( normL > 0.1f || // 10% deadzone applied to all analog input
-         normR > 0.1f ||
-            LT > 0.1f ||
-            RT > 0.1f ||
+    if ( normL > 0.075f || LX0 > 0.05f || LY0 > 0.05f || // 10% deadzone applied to all analog input
+         normR > 0.075f || RX0 > 0.05f || RY0 > 0.05f ||
+            LT > 0.075f || LT0 > 0.05f ||
+            RT > 0.075f || RT0 > 0.05f ||
          memcmp (&pDevice->state.current.Gamepad.wButtons, &pDevice->state.prev.Gamepad.wButtons, sizeof (WORD)) != 0)
     {
       if ( (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) == 0 &&

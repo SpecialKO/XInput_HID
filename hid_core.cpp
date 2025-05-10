@@ -213,45 +213,48 @@ hid_device_file_s::reconnect (HANDLE hNewDeviceFile)
 }
 
 bool
-SK_HID_ProcessChordInput (hid_device_file_s *pDevice)
+SK_HID_ProcessChordInput (XINPUT_STATE& state, hid_device_file_s *pDevice)
 {
   if (config.bEnableControllerInput)
   {
     DWORD dwButtons = 
-      pDevice->state.current.Gamepad.wButtons;
+      state.Gamepad.wButtons;
   
-    if (( (float)(pDevice->state.current.Gamepad.bLeftTrigger - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) /
-          (float)(                                        255 - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) ) >= 1.0f)
+    if (( (float)(state.Gamepad.bLeftTrigger - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) /
+          (float)(                       255 - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) ) >= 1.0f)
     {
       dwButtons |= XINPUT_GAMEPAD_LEFT_TRIGGER;
     }
   
-    if (( (float)(pDevice->state.current.Gamepad.bRightTrigger - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) /
-          (float)(                                         255 - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) ) >= 1.0f)
+    if (( (float)(state.Gamepad.bRightTrigger - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) /
+          (float)(                        255 - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) ) >= 1.0f)
     {
       dwButtons |= XINPUT_GAMEPAD_RIGHT_TRIGGER;
     }
   
     DWORD dwMask = 0;
   
-    switch (config.bSpecialTriangleShutsOff)
+    if (pDevice != nullptr)
     {
-      case 0:                                  break;
-      case 1: dwMask = XINPUT_GAMEPAD_Y;       break;
-      case 3: dwMask = XINPUT_GAMEPAD_DPAD_UP; break; // We remapped this so that 1 could mean default for backwards compat
-      default:
-        dwMask = config.bSpecialTriangleShutsOff;
-        break;
-    }
-  
-    if ( (dwButtons & dwMask              ) != 0 &&
-         (dwButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
-    {
-      if (SK_Bluetooth_PowerOffGamepad (pDevice))
+      switch (config.bSpecialTriangleShutsOff)
       {
-        pDevice->disconnect ();
+        case 0:                                  break;
+        case 1: dwMask = XINPUT_GAMEPAD_Y;       break;
+        case 3: dwMask = XINPUT_GAMEPAD_DPAD_UP; break; // We remapped this so that 1 could mean default for backwards compat
+        default:
+          dwMask = config.bSpecialTriangleShutsOff;
+          break;
+      }
   
-        return true;
+      if ( (dwButtons & dwMask              ) != 0 &&
+           (dwButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
+      {
+        if (SK_Bluetooth_PowerOffGamepad (pDevice))
+        {
+          pDevice->disconnect ();
+  
+          return true;
+        }
       }
     }
   

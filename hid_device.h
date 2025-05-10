@@ -81,7 +81,7 @@ bool SK_XInput_UpdatePolledDataAndTimestamp ( hid_device_file_s *pDevice,
                                               bool               bActive,
                                               bool              &bNewData );
 
-bool SK_HID_ProcessChordInput (hid_device_file_s *pDevice);
+bool SK_HID_ProcessChordInput (XINPUT_STATE& state, hid_device_file_s *pDevice = nullptr);
 
 void SK_HID_SpawnInputReportThread  (hid_device_file_s* pDevice);
 void SK_HID_SpawnOutputReportThread (hid_device_file_s* pDevice);
