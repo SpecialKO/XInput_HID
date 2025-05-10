@@ -869,6 +869,8 @@ XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
     } else     first_unused_slot = 1;
   } else       first_unused_slot = 0;
 
+  hid_device_file_s* pNewestDevice = nullptr;
+
   if (dwState == ERROR_DEVICE_NOT_CONNECTED && dwUserIndex >= first_unused_slot)
   {
     bool bSuccess = false;
@@ -891,8 +893,6 @@ XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
         bSuccess = true;
       }
     }
-
-    hid_device_file_s* pNewestDevice = nullptr;
 
     for ( auto& dev : connected_devices )
     {
@@ -919,41 +919,6 @@ XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
       pState->Gamepad.wButtons      = pNewestDevice->state.current.Gamepad.wButtons;
       pState->dwPacketNumber        = pNewestDevice->state.current.dwPacketNumber;
 
-      if (config.bSpecialCrossActivatesScreenSaver && config.bEnableControllerInput && bNew)
-      {
-        DWORD dwButtons = 
-          pState->Gamepad.wButtons;
-
-        if (( (float)(pState->Gamepad.bLeftTrigger - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) /
-              (float)(                         255 - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) ) >= 1.0f)
-        {
-          dwButtons |= XINPUT_GAMEPAD_LEFT_TRIGGER;
-        }
-
-        if (( (float)(pState->Gamepad.bRightTrigger - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) /
-              (float)(                          255 - XINPUT_GAMEPAD_TRIGGER_THRESHOLD) ) >= 1.0f)
-        {
-          dwButtons |= XINPUT_GAMEPAD_RIGHT_TRIGGER;
-        }
-
-        DWORD dwMask = 0;
-
-        switch (config.bSpecialCrossActivatesScreenSaver)
-        {
-          case 1: dwMask = XINPUT_GAMEPAD_A;       break;
-          case 3: dwMask = XINPUT_GAMEPAD_DPAD_UP; break; // We remapped this so that 1 could mean default for backwards compat
-          default:
-            dwMask = config.bSpecialCrossActivatesScreenSaver;
-            break;
-        }
-
-        if ( (dwButtons & dwMask              ) != 0 &&
-             (dwButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
-        {
-          SendMessageTimeout (GetDesktopWindow (), WM_SYSCOMMAND, SC_SCREENSAVE, 0, SMTO_BLOCK, INFINITE, nullptr);
-        }
-      }
-
       // Give most recently active device a +75 ms advantage,
       //   we may have the same device connected over two
       //     protocols and do not want repeats of the same
@@ -964,9 +929,19 @@ XInputGetState (DWORD dwUserIndex, XINPUT_STATE *pState)
     if (bSuccess)
       return ERROR_SUCCESS;
   }
+
   else
   {
-    SK_HID_ProcessChordInput (*(XINPUT_STATE *)pState, nullptr);
+    static hid_device_file_s xinput_dev [XUSER_MAX_COUNT];
+    static DWORD             packets    [XUSER_MAX_COUNT];
+
+    xinput_dev [dwUserIndex].state.current = *(XINPUT_STATE *)pState;
+
+    bool bNewData = false;
+
+    SK_XInput_UpdatePolledDataAndTimestamp (
+      &xinput_dev [dwUserIndex], std::exchange (packets [dwUserIndex], pState->dwPacketNumber)
+                                                                    != pState->dwPacketNumber, bNewData);
   }
 
   return dwState;
@@ -1050,9 +1025,19 @@ XInputGetStateEx (DWORD dwUserIndex, XINPUT_STATE_EX *pState)
     if (bSuccess)
       return ERROR_SUCCESS;
   }
+
   else
   {
-    SK_HID_ProcessChordInput (*(XINPUT_STATE *)pState, nullptr);
+    static hid_device_file_s xinput_dev [XUSER_MAX_COUNT];
+    static DWORD             packets    [XUSER_MAX_COUNT];
+
+    xinput_dev [dwUserIndex].state.current = *(XINPUT_STATE *)pState;
+
+    bool bNewData = false;
+
+    SK_XInput_UpdatePolledDataAndTimestamp (
+      &xinput_dev [dwUserIndex], std::exchange (packets [dwUserIndex], pState->dwPacketNumber)
+                                                                    != pState->dwPacketNumber, bNewData);
   }
 
   return dwState;
@@ -1370,57 +1355,61 @@ SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive
 
   if (bActive)
   {
-    const float LX0     = (float)(pDevice->state.current.Gamepad.sThumbLX     ) / 32767.0f;
-    const float LY0     = (float)(pDevice->state.current.Gamepad.sThumbLY     ) / 32767.0f;
-    const float LX1     = (float)(pDevice->state.prev   .Gamepad.sThumbLX     ) / 32767.0f;
-    const float LY1     = (float)(pDevice->state.prev   .Gamepad.sThumbLY     ) / 32767.0f;
-    const float RX0     = (float)(pDevice->state.current.Gamepad.sThumbRX     ) / 32767.0f;
-    const float RY0     = (float)(pDevice->state.current.Gamepad.sThumbRY     ) / 32767.0f;
-    const float RX1     = (float)(pDevice->state.prev   .Gamepad.sThumbRX     ) / 32767.0f;
-    const float RY1     = (float)(pDevice->state.prev   .Gamepad.sThumbRY     ) / 32767.0f;
-    const float LT0     = (float)(pDevice->state.current.Gamepad.bLeftTrigger ) / 255.0f;
-    const float LT1     = (float)(pDevice->state.prev   .Gamepad.bLeftTrigger ) / 255.0f;
-    const float RT0     = (float)(pDevice->state.current.Gamepad.bRightTrigger) / 255.0f;
-    const float RT1     = (float)(pDevice->state.prev   .Gamepad.bRightTrigger) / 255.0f;
-
-    const float LX      = fabs (LX0 - LX1);
-    const float LY      = fabs (LY0 - LY1);
-    const float RX      = fabs (RX0 - RX1);
-    const float RY      = fabs (RY0 - RY1);
-    const float LT      = fabs (LT0 - LT1);
-    const float RT      = fabs (RT0 - RT1);
-
-    const float normL   = sqrtf ( LX*LX + LY*LY );
-    const float normR   = sqrtf ( RX*RX + RY*RY );
-
-    if ( normL > 0.075f || LX0 > 0.05f || LY0 > 0.05f || // 10% deadzone applied to all analog input
-         normR > 0.075f || RX0 > 0.05f || RY0 > 0.05f ||
-            LT > 0.075f || LT0 > 0.05f ||
-            RT > 0.075f || RT0 > 0.05f ||
-         memcmp (&pDevice->state.current.Gamepad.wButtons, &pDevice->state.prev.Gamepad.wButtons, sizeof (WORD)) != 0)
+    if (memcmp (&pDevice->state.prev.Gamepad, &pDevice->state.current.Gamepad, sizeof (XINPUT_GAMEPAD)))
     {
-      if ( (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) == 0 &&
-           (pDevice->state.prev.Gamepad.wButtons    & XINPUT_GAMEPAD_GUIDE) == 0 )
+      const float LX0   = (float)(pDevice->state.current.Gamepad.sThumbLX     ) / 32767.0f;
+      const float LY0   = (float)(pDevice->state.current.Gamepad.sThumbLY     ) / 32767.0f;
+      const float LX1   = (float)(pDevice->state.prev   .Gamepad.sThumbLX     ) / 32767.0f;
+      const float LY1   = (float)(pDevice->state.prev   .Gamepad.sThumbLY     ) / 32767.0f;
+      const float RX0   = (float)(pDevice->state.current.Gamepad.sThumbRX     ) / 32767.0f;
+      const float RY0   = (float)(pDevice->state.current.Gamepad.sThumbRY     ) / 32767.0f;
+      const float RX1   = (float)(pDevice->state.prev   .Gamepad.sThumbRX     ) / 32767.0f;
+      const float RY1   = (float)(pDevice->state.prev   .Gamepad.sThumbRY     ) / 32767.0f;
+      const float LT0   = (float)(pDevice->state.current.Gamepad.bLeftTrigger ) / 255.0f;
+      const float LT1   = (float)(pDevice->state.prev   .Gamepad.bLeftTrigger ) / 255.0f;
+      const float RT0   = (float)(pDevice->state.current.Gamepad.bRightTrigger) / 255.0f;
+      const float RT1   = (float)(pDevice->state.prev   .Gamepad.bRightTrigger) / 255.0f;
+
+      const float LX    = fabs (LX0 - LX1);
+      const float LY    = fabs (LY0 - LY1);
+      const float RX    = fabs (RX0 - RX1);
+      const float RY    = fabs (RY0 - RY1);
+      const float LT    = fabs (LT0 - LT1);
+      const float RT    = fabs (RT0 - RT1);
+
+      const float normL = sqrtf ( LX*LX + LY*LY );
+      const float normR = sqrtf ( RX*RX + RY*RY );
+
+      if ( normL > 0.075f || LX0 > 0.05f || LY0 > 0.05f || // 10% deadzone applied to all analog input
+           normR > 0.075f || RX0 > 0.05f || RY0 > 0.05f ||
+              LT > 0.075f || LT0 > 0.05f ||
+              RT > 0.075f || RT0 > 0.05f ||
+              pDevice->state.current.Gamepad.wButtons !=
+              pDevice->state.prev   .Gamepad.wButtons )
       {
-        if (dwTimeInMs > SK_Input_LastChordActivationTime + 250UL && config.bDeactivateScreensaverOnGamepadInput)
+        if ( (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) == 0 &&
+             (pDevice->state.prev.Gamepad.wButtons    & XINPUT_GAMEPAD_GUIDE) == 0 )
         {
-          BOOL                                                  bScreensaverActive = FALSE;
-          SystemParametersInfoA (SPI_GETSCREENSAVERRUNNING, 0, &bScreensaverActive, 0);
-
-          if (bScreensaverActive)
+          if (dwTimeInMs > SK_Input_LastChordActivationTime + 250UL && config.bDeactivateScreensaverOnGamepadInput)
           {
-            SK_Util_TerminateProcesses (L"scrnsave.scr", true);
+            BOOL                                                  bScreensaverActive = FALSE;
+            SystemParametersInfoA (SPI_GETSCREENSAVERRUNNING, 0, &bScreensaverActive, 0);
+
+            if (bScreensaverActive)
+            {
+              SK_Util_TerminateProcesses (L"scrnsave.scr", true);
+            }
           }
+
+          pDevice->state.input_timestamp = dwTimeInMs;
+          pDevice->state.last_idle_check = dwTimeInMs;
         }
-
-        pDevice->state.input_timestamp = dwTimeInMs;
-        pDevice->state.last_idle_check = dwTimeInMs;
       }
-    }
 
-    pDevice->state.prev =
-    pDevice->state.current;
-    pDevice->state.current.dwPacketNumber++;
+      pDevice->state.prev =
+      pDevice->state.current;
+      pDevice->state.current.dwPacketNumber++;
+    }
 
     bNewData = true;
   }
@@ -1428,61 +1417,61 @@ SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive
   else
   {
     bNewData = false;
+  }
 
-    if (                   pDevice->bConnected &&
-                           pDevice->bWireless  &&
-         pDevice->state.input_timestamp !=   0 &&
-           config.dwIdleTimeoutInSeconds >= 30 &&
-                           dwTimeoutInMs < dwTimeInMs ) // Ignore invalid timeout values
+  if (                   pDevice->bConnected &&
+                         pDevice->bWireless  &&
+       pDevice->state.input_timestamp !=   0 &&
+         config.dwIdleTimeoutInSeconds >= 30 &&
+                         dwTimeoutInMs < dwTimeInMs ) // Ignore invalid timeout values
+  {
+    if ( pDevice->state.input_timestamp < (dwTimeInMs - dwTimeoutInMs) &&
+         pDevice->state.last_idle_check < (dwTimeInMs - dwTimeoutInMs) )
     {
-      if ( pDevice->state.input_timestamp < (dwTimeInMs - dwTimeoutInMs) &&
-           pDevice->state.last_idle_check < (dwTimeInMs - dwTimeoutInMs) )
+      bool bIsSpecialKActive = false;
+
+      HMODULE hModSpecialK =
+        bHasSpecialKDll ? LoadLibraryW (wszSpecialKDllName)
+                        : nullptr;
+
+      if (hModSpecialK != nullptr)
       {
-        bool bIsSpecialKActive = false;
+        const auto SKX_GetInjectedPIDs =
+                  (SKX_GetInjectedPIDs_pfn)GetProcAddress ( hModSpecialK,
+                  "SKX_GetInjectedPIDs" );
 
-        HMODULE hModSpecialK =
-          bHasSpecialKDll ? LoadLibraryW (wszSpecialKDllName)
-                          : nullptr;
+        static DWORD                 dwInjectedPIDs [512] = { };
+        if ( nullptr       !=   SKX_GetInjectedPIDs )
+          bIsSpecialKActive = ( SKX_GetInjectedPIDs (
+                                     dwInjectedPIDs, 512) > 0 );
 
-        if (hModSpecialK != nullptr)
-        {
-          const auto SKX_GetInjectedPIDs =
-                    (SKX_GetInjectedPIDs_pfn)GetProcAddress ( hModSpecialK,
-                    "SKX_GetInjectedPIDs" );
+        FreeLibrary (hModSpecialK);
+      }
 
-          static DWORD                 dwInjectedPIDs [512] = { };
-          if ( nullptr       !=   SKX_GetInjectedPIDs )
-            bIsSpecialKActive = ( SKX_GetInjectedPIDs (
-                                       dwInjectedPIDs, 512) > 0 );
+      if (bIsSpecialKActive)
+      {
+        //
+        // SK is actively injected into things, let's test for
+        //   idle state again in 1/8th of the idle input period...
+        //
+        //  This increases the frequency that idle input is tested,
+        //    but nothing significant given the typical timeout
+        //      (i.e. 7.5 minutes -> 0.9375 minutes).
+        //
+        pDevice->state.last_idle_check =
+          (dwTimeInMs - dwTimeoutInMs) / 8;
+        //
+        // Controller -is- idle, but SK is injected into a game, so all we can
+        //   do is schedule another idle test sooner (8x more often) than usual.
+        // 
+        //  If SK's injected game exits before the next scheduled test, then we
+        //    can finally power-off this gamepad!
+        //
+      }
 
-          FreeLibrary (hModSpecialK);
-        }
-
-        if (bIsSpecialKActive)
-        {
-          //
-          // SK is actively injected into things, let's test for
-          //   idle state again in 1/8th of the idle input period...
-          //
-          //  This increases the frequency that idle input is tested,
-          //    but nothing significant given the typical timeout
-          //      (i.e. 7.5 minutes -> 0.9375 minutes).
-          //
-          pDevice->state.last_idle_check =
-            (dwTimeInMs - dwTimeoutInMs) / 8;
-          //
-          // Controller -is- idle, but SK is injected into a game, so all we can
-          //   do is schedule another idle test sooner (8x more often) than usual.
-          // 
-          //  If SK's injected game exits before the next scheduled test, then we
-          //    can finally power-off this gamepad!
-          //
-        }
-
-        else if (SK_Bluetooth_PowerOffGamepad (pDevice))
-        {
-          return false;
-        }
+      else if (SK_Bluetooth_PowerOffGamepad (pDevice))
+      {
+        return false;
       }
     }
   }
