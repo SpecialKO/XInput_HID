@@ -596,15 +596,16 @@ SK_DualSense_GetInputReportUSB (void *pGenericDev)
     float RY    = pDevice->state.current.Gamepad.sThumbRY;
     float normR = sqrtf ( RX*RX + RY*RY );
 
-    if (! SK_XInput_UpdatePolledDataAndTimestamp (
-                   pDevice, (
-                   pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
-                   pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
-                                                          normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
-                                                          normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
-                   pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD     ||
-                   pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD
-                            ), bNewData          )
+    if ( pData->DeviceTimeStamp == 0 ||
+         ! SK_XInput_UpdatePolledDataAndTimestamp (
+                pDevice, (
+                pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
+                pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
+                                                       normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
+                                                       normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
+                pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD     ||
+                pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD
+                         ), bNewData              )
        )
     {
       return false;
@@ -838,15 +839,16 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
       float normR = sqrtf ( RX*RX + RY*RY );
 
 
-      if (! SK_XInput_UpdatePolledDataAndTimestamp (
-                     pDevice, (
-                     pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
-                     pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
-                                                            normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE  * 2 ||
-                                                            normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE * 2 ||
-                     pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD    * 2 ||
-                     pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD    * 2
-                              ), bNewData          )
+      if ( pData->DeviceTimeStamp == 0 ||
+           ! SK_XInput_UpdatePolledDataAndTimestamp (
+                  pDevice, (
+                  pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
+                  pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
+                                                         normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE  * 2 ||
+                                                         normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE * 2 ||
+                  pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD    * 2 ||
+                  pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD    * 2
+                           ), bNewData              )
          )
       {
         return false;
