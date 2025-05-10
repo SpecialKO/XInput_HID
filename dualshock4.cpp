@@ -316,10 +316,10 @@ SK_DualShock4_GetInputReportUSB (void *pGenericDev)
                    pDevice, (
                    pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
                    pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
-                                                          normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE  * 2 ||
-                                                          normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE * 2 ||
-                   pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD    * 2 ||
-                   pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD    * 2
+                                                          normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
+                                                          normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
+                   pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD     ||
+                   pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD
                             ), bNewData          )
        )
     {
@@ -468,10 +468,10 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
                      pDevice, (
                      pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
                      pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
-                                                            normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE  * 2 ||
-                                                            normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE * 2 ||
-                     pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD    * 2 ||
-                     pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD    * 2
+                                                            normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
+                                                            normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
+                     pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD     ||
+                     pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD
                               ), bNewData          )
          )
       {
@@ -571,10 +571,10 @@ SK_DualShock4_GetInputReportBt (void *pGenericDev)
                      pDevice, (
                      pDevice->state.current.Gamepad.wButtons     !=                                    0 ||
                      pDevice->state.current.Gamepad.wButtons     != pDevice->state.prev.Gamepad.wButtons ||
-                                                            normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE  * 2 ||
-                                                            normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE * 2 ||
-                     pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD    * 2 ||
-                     pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD    * 2
+                                                            normL > XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE   ||
+                                                            normR > XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE  ||
+                     pDevice->state.current.Gamepad.bLeftTrigger  > XINPUT_GAMEPAD_TRIGGER_THRESHOLD     ||
+                     pDevice->state.current.Gamepad.bRightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD
                               ), bNewData          )
          )
       {

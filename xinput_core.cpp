@@ -1352,9 +1352,36 @@ SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive
       pDevice->state.last_idle_check = dwTimeInMs;
   }
 
-  if (bActive && memcmp (&pDevice->state.current.Gamepad, &pDevice->state.prev.Gamepad, sizeof (XINPUT_GAMEPAD)) != 0)
+  if (bActive)
   {
-    if (config.bDeactivateScreensaverOnGamepadInput)
+    const float LX0     = (float)(pDevice->state.current.Gamepad.sThumbLX     ) / 32767.0f;
+    const float LY0     = (float)(pDevice->state.current.Gamepad.sThumbLY     ) / 32767.0f;
+    const float LX1     = (float)(pDevice->state.prev   .Gamepad.sThumbLX     ) / 32767.0f;
+    const float LY1     = (float)(pDevice->state.prev   .Gamepad.sThumbLY     ) / 32767.0f;
+    const float RX0     = (float)(pDevice->state.current.Gamepad.sThumbRX     ) / 32767.0f;
+    const float RY0     = (float)(pDevice->state.current.Gamepad.sThumbRY     ) / 32767.0f;
+    const float RX1     = (float)(pDevice->state.prev   .Gamepad.sThumbRX     ) / 32767.0f;
+    const float RY1     = (float)(pDevice->state.prev   .Gamepad.sThumbRY     ) / 32767.0f;
+    const float LT0     = (float)(pDevice->state.current.Gamepad.bLeftTrigger ) / 255.0f;
+    const float LT1     = (float)(pDevice->state.prev   .Gamepad.bLeftTrigger ) / 255.0f;
+    const float RT0     = (float)(pDevice->state.current.Gamepad.bRightTrigger) / 255.0f;
+    const float RT1     = (float)(pDevice->state.prev   .Gamepad.bRightTrigger) / 255.0f;
+
+    const float LX      = fabs (LX0 - LX1);
+    const float LY      = fabs (LY0 - LY1);
+    const float RX      = fabs (RX0 - RX1);
+    const float RY      = fabs (RY0 - RY1);
+    const float LT      = fabs (LT0 - LT1);
+    const float RT      = fabs (RT0 - RT1);
+
+    const float normL   = sqrtf ( LX*LX + LY*LY );
+    const float normR   = sqrtf ( RX*RX + RY*RY );
+
+    if ( normL > 0.1f || // 10% deadzone applied to all analog input
+         normR > 0.1f ||
+            LT > 0.1f ||
+            RT > 0.1f ||
+         memcmp (&pDevice->state.current.Gamepad.wButtons, &pDevice->state.prev.Gamepad.wButtons, sizeof (WORD)) != 0)
     {
       if ( (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) == 0 &&
            (pDevice->state.prev.Gamepad.wButtons    & XINPUT_GAMEPAD_GUIDE) == 0 )
@@ -1369,15 +1396,15 @@ SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive
             SK_Util_TerminateProcesses (L"scrnsave.scr", true);
           }
         }
+
+        pDevice->state.input_timestamp = dwTimeInMs;
+        pDevice->state.last_idle_check = dwTimeInMs;
       }
     }
 
     pDevice->state.prev =
     pDevice->state.current;
     pDevice->state.current.dwPacketNumber++;
-
-    pDevice->state.input_timestamp = dwTimeInMs;
-    pDevice->state.last_idle_check = dwTimeInMs;
 
     bNewData = true;
   }
