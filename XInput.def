@@ -13,3 +13,5 @@ LIBRARY "XInput1_4"
     XInputGetStateEx                = XInputGetStateEx                  @100
     XInputPowerOff                  = XInputPowerOff                    @103
     XInputGetCapabilitiesEx         = XInputGetCapabilitiesEx           @108
+
+    SK_Input_HasPlayStationDevices  = SK_Input_HasPlayStationDevices

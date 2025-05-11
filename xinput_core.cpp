@@ -812,6 +812,21 @@ XInput_HID_InitThread (LPVOID)
 }
 
 
+bool
+WINAPI
+SK_Input_HasPlayStationDevices (void)
+{
+  std::vector <std::pair <hid_device_file_s*, DWORD>> connected_devices;
+
+  for ( auto& controller : hid_devices )
+  {
+    if (controller.bConnected)
+      return true;
+  }
+
+  return false;
+}
+
 void
 SK_XInput_ProbeAllSlotsForControllers (int slot0, int slot1, int slot2, int slot3)
 {
