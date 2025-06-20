@@ -562,18 +562,12 @@ void SK_HID_SetupCompatibleControllers (void)
             // DualSense
             case 0x0DF2:
             case 0x0CE6:
-              controller.get_input_report =
-                controller.bWireless ? SK_DualSense_GetInputReportBt :
-                                       SK_DualSense_GetInputReportUSB;
               break;
 
             // DualShock 4
             case 0x05C4:
             case 0x09CC:
             case 0x0BA0:
-              controller.get_input_report =
-                controller.bWireless ? SK_DualShock4_GetInputReportBt :
-                                       SK_DualShock4_GetInputReportUSB;
               break;
 
             // DualShock 3
@@ -616,17 +610,54 @@ void SK_HID_SetupCompatibleControllers (void)
             controller.input_report.resize   (caps.InputReportByteLength);
             controller.output_report.resize  (caps.OutputReportByteLength);
             controller.feature_report.resize (caps.FeatureReportByteLength);
-  
-            wcsncpy_s (controller.wszDevicePath, MAX_PATH,
-                                  wszFileName,   _TRUNCATE);
 
-            if ( (intptr_t)controller.hDeviceFile > 0 ||
-                 (intptr_t)hDeviceFile            > 0 )
+            if (! (controller.input_report  .empty () ||
+                   controller.feature_report.empty ()) )
             {
-              auto iter =
-                hid_devices.push_back (controller);
+              switch (hidAttribs.ProductID)
+              {
+                // DualSense
+                case 0x0DF2:
+                case 0x0CE6:
+                  controller.get_input_report =
+                    controller.bWireless ? SK_DualSense_GetInputReportBt :
+                                           SK_DualSense_GetInputReportUSB;
+                  break;
 
-              iter->reconnect (hDeviceFile);
+                // DualShock 4
+                case 0x05C4:
+                case 0x09CC:
+                case 0x0BA0:
+                  controller.get_input_report =
+                    controller.bWireless ? SK_DualShock4_GetInputReportBt :
+                                           SK_DualShock4_GetInputReportUSB;
+                  break;
+
+                // DualShock 3
+                case 0x0268:
+                  break;
+
+                default:
+                  break;
+              }
+
+              wcsncpy_s (controller.wszDevicePath, MAX_PATH,
+                                    wszFileName,   _TRUNCATE);
+
+              if ( (intptr_t)controller.hDeviceFile > 0 ||
+                   (intptr_t)hDeviceFile            > 0 )
+              {
+                auto iter =
+                  hid_devices.push_back (controller);
+
+                iter->reconnect (hDeviceFile);
+              }
+            }
+
+            else
+            {
+              CloseHandle (hDeviceFile);
+              continue;
             }
           }
 
@@ -645,9 +676,6 @@ void SK_HID_SetupCompatibleControllers (void)
           {
             // Switch Pro
             case 0x2009:
-              controller.get_input_report =
-                controller.bWireless ? SK_SwitchPro_GetInputReportBt :
-                                       SK_SwitchPro_GetInputReportUSB;
               break;
 
             default:
@@ -682,17 +710,33 @@ void SK_HID_SetupCompatibleControllers (void)
             controller.input_report.resize   (caps.InputReportByteLength);
             controller.output_report.resize  (caps.OutputReportByteLength);
             controller.feature_report.resize (caps.FeatureReportByteLength);
-  
-            wcsncpy_s (controller.wszDevicePath, MAX_PATH,
-                                  wszFileName,   _TRUNCATE);
 
-            if ( (intptr_t)controller.hDeviceFile > 0 ||
-                 (intptr_t)hDeviceFile            > 0 )
+            if (! controller.input_report.empty ())
             {
-              auto iter =
-                hid_devices.push_back (controller);
+              switch (hidAttribs.ProductID)
+              {
+                // Switch Pro
+                case 0x2009:
+                  controller.get_input_report =
+                    controller.bWireless ? SK_SwitchPro_GetInputReportBt :
+                                           SK_SwitchPro_GetInputReportUSB;
+                  break;
 
-              iter->reconnect (hDeviceFile);
+                default:
+                  break;
+              }
+  
+              wcsncpy_s (controller.wszDevicePath, MAX_PATH,
+                                    wszFileName,   _TRUNCATE);
+
+              if ( (intptr_t)controller.hDeviceFile > 0 ||
+                   (intptr_t)hDeviceFile            > 0 )
+              {
+                auto iter =
+                  hid_devices.push_back (controller);
+
+                iter->reconnect (hDeviceFile);
+              }
             }
           }
 
