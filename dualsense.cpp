@@ -329,6 +329,13 @@ struct SK_HID_DualSense_GetStateData // 63
 
 void SK_DualSense_HardCodedEdgeStuff (hid_device_file_s* pDevice)
 {
+  static DWORD
+        dwLastTest = 0;
+  DWORD dwTimeNow  = timeGetTime ();
+
+  if (dwTimeNow < std::exchange (dwLastTest, dwTimeNow) + 50)
+    return;
+
   static bool bIsEdge            = false;
   static HWND hWndLastForeground = 0;
 
@@ -611,9 +618,6 @@ SK_DualSense_GetInputReportUSB (void *pGenericDev)
       return false;
     }
 
-    // Bindings that I like for personal use, but do not want to make configurable :)
-    SK_DualSense_HardCodedEdgeStuff (pDevice);
-
 #if 0
     if (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE)
     {
@@ -838,7 +842,6 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
       float RY    = pDevice->state.current.Gamepad.sThumbRY;
       float normR = sqrtf ( RX*RX + RY*RY );
 
-
       if ( pData->DeviceTimeStamp == 0 ||
            ! SK_XInput_UpdatePolledDataAndTimestamp (
                   pDevice, (
@@ -853,9 +856,6 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
       {
         return false;
       }
-
-      // Bindings that I like for personal use, but do not want to make configurable :)
-      SK_DualSense_HardCodedEdgeStuff (pDevice);
 
 #if 0
       // Common to DualSense and DualShock4, but no representation in XInput
@@ -973,9 +973,6 @@ SK_DualSense_GetInputReportBt (void *pGenericDev)
       {
         return false;
       }
-
-      // Bindings that I like for personal use, but do not want to make configurable :)
-      SK_DualSense_HardCodedEdgeStuff (pDevice);
     }
 
     return bNewData;

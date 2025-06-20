@@ -539,23 +539,13 @@ void SK_HID_SetupCompatibleControllers (void)
         HIDD_ATTRIBUTES hidAttribs      = {                      };
                         hidAttribs.Size = sizeof (HIDD_ATTRIBUTES);
 
-        PHIDP_PREPARSED_DATA pPreparsedData = nullptr;
-
-        HidD_GetAttributes (hDeviceFile, &hidAttribs);
-
-        if (! HidD_GetPreparsedData (hDeviceFile, &pPreparsedData))
+        if (! HidD_GetAttributes (hDeviceFile, &hidAttribs))
         {
+          CloseHandle (hDeviceFile);
           continue;
         }
 
-//#ifdef DEBUG
-//            if (controller.bBluetooth)
-//              SK_ImGui_Warning (L"Bluetooth");
-//#endif
-
-        HIDP_CAPS                                caps = { };
-        HidP_GetCaps (          pPreparsedData, &caps);
-        HidD_FreePreparsedData (pPreparsedData);
+        PHIDP_PREPARSED_DATA pPreparsedData = nullptr;
   
         bool bSONY = 
           hidAttribs.VendorID == 0x54c;
@@ -565,22 +555,9 @@ void SK_HID_SetupCompatibleControllers (void)
 
         if (bSONY)
         {
-          hid_device_file_s controller;
+          hid_device_file_s controller = { };
 
-          controller.devinfo.pid = hidAttribs.ProductID;
-          controller.devinfo.vid = hidAttribs.VendorID;
-
-          controller.bWireless =
-            StrStrIW (
-              wszFileName, //Bluetooth_Base_UUID
-                           L"{00001124-0000-1000-8000-00805f9b34fb}"
-            );
-
-          controller.input_report.resize   (caps.InputReportByteLength);
-          controller.output_report.resize  (caps.OutputReportByteLength);
-          controller.feature_report.resize (caps.FeatureReportByteLength);
-
-          switch (controller.devinfo.pid)
+          switch (hidAttribs.ProductID)
           {
             // DualSense
             case 0x0DF2:
@@ -608,38 +585,63 @@ void SK_HID_SetupCompatibleControllers (void)
               continue;
               break;
           }
-  
-          wcsncpy_s (controller.wszDevicePath, MAX_PATH,
-                                wszFileName,   _TRUNCATE);
 
-          if ( (intptr_t)controller.hDeviceFile > 0 ||
-               (intptr_t)hDeviceFile            > 0 )
+          if (! HidD_GetPreparsedData (hDeviceFile, &pPreparsedData))
           {
-            auto iter =
-              hid_devices.push_back (controller);
+            CloseHandle (hDeviceFile);
+            continue;
+          }
 
-            iter->reconnect (hDeviceFile);
+          bool has_caps = false;
+
+#ifndef  NT_SUCCESS
+# define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
+#endif
+
+          HIDP_CAPS                                             caps = { };
+          has_caps = NT_SUCCESS (HidP_GetCaps (pPreparsedData, &caps));
+          HidD_FreePreparsedData              (pPreparsedData);
+
+          if (has_caps)
+          {
+            controller.devinfo.pid = hidAttribs.ProductID;
+            controller.devinfo.vid = hidAttribs.VendorID;
+
+            controller.bWireless =
+              StrStrIW (
+                wszFileName, //Bluetooth_Base_UUID
+                             L"{00001124-0000-1000-8000-00805f9b34fb}"
+              );
+
+            controller.input_report.resize   (caps.InputReportByteLength);
+            controller.output_report.resize  (caps.OutputReportByteLength);
+            controller.feature_report.resize (caps.FeatureReportByteLength);
+  
+            wcsncpy_s (controller.wszDevicePath, MAX_PATH,
+                                  wszFileName,   _TRUNCATE);
+
+            if ( (intptr_t)controller.hDeviceFile > 0 ||
+                 (intptr_t)hDeviceFile            > 0 )
+            {
+              auto iter =
+                hid_devices.push_back (controller);
+
+              iter->reconnect (hDeviceFile);
+            }
+          }
+
+          else
+          {
+            CloseHandle (hDeviceFile);
+            continue;
           }
         }
 
         if (bNintendo)
         {
-          hid_device_file_s controller;
+          hid_device_file_s controller = { };
 
-          controller.devinfo.pid = hidAttribs.ProductID;
-          controller.devinfo.vid = hidAttribs.VendorID;
-
-          controller.bWireless =
-            StrStrIW (
-              wszFileName, //Bluetooth_Base_UUID
-                           L"{00001124-0000-1000-8000-00805f9b34fb}"
-            );
-
-          controller.input_report.resize   (caps.InputReportByteLength);
-          controller.output_report.resize  (caps.OutputReportByteLength);
-          controller.feature_report.resize (caps.FeatureReportByteLength);
-
-          switch (controller.devinfo.pid)
+          switch (hidAttribs.ProductID)
           {
             // Switch Pro
             case 0x2009:
@@ -653,17 +655,51 @@ void SK_HID_SetupCompatibleControllers (void)
               continue;
               break;
           }
-  
-          wcsncpy_s (controller.wszDevicePath, MAX_PATH,
-                                wszFileName,   _TRUNCATE);
 
-          if ( (intptr_t)controller.hDeviceFile > 0 ||
-               (intptr_t)hDeviceFile            > 0 )
+          if (! HidD_GetPreparsedData (hDeviceFile, &pPreparsedData))
           {
-            auto iter =
-              hid_devices.push_back (controller);
+            CloseHandle (hDeviceFile);
+            continue;
+          }
 
-            iter->reconnect (hDeviceFile);
+          bool has_caps = false;
+
+          HIDP_CAPS                                             caps = { };
+          has_caps = NT_SUCCESS (HidP_GetCaps (pPreparsedData, &caps));
+          HidD_FreePreparsedData              (pPreparsedData);
+
+          if (has_caps)
+          {
+            controller.devinfo.pid = hidAttribs.ProductID;
+            controller.devinfo.vid = hidAttribs.VendorID;
+
+            controller.bWireless =
+              StrStrIW (
+                wszFileName, //Bluetooth_Base_UUID
+                             L"{00001124-0000-1000-8000-00805f9b34fb}"
+              );
+
+            controller.input_report.resize   (caps.InputReportByteLength);
+            controller.output_report.resize  (caps.OutputReportByteLength);
+            controller.feature_report.resize (caps.FeatureReportByteLength);
+  
+            wcsncpy_s (controller.wszDevicePath, MAX_PATH,
+                                  wszFileName,   _TRUNCATE);
+
+            if ( (intptr_t)controller.hDeviceFile > 0 ||
+                 (intptr_t)hDeviceFile            > 0 )
+            {
+              auto iter =
+                hid_devices.push_back (controller);
+
+              iter->reconnect (hDeviceFile);
+            }
+          }
+
+          else
+          {
+            CloseHandle (hDeviceFile);
+            continue;
           }
         }
       }
@@ -1402,6 +1438,11 @@ SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive
               pDevice->state.current.Gamepad.wButtons !=
               pDevice->state.prev   .Gamepad.wButtons )
       {
+        extern void SK_DualSense_HardCodedEdgeStuff (hid_device_file_s* pDevice);
+
+        // Bindings that I like for personal use, but do not want to make configurable :)
+        SK_DualSense_HardCodedEdgeStuff (pDevice);
+
         if ( (pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_GUIDE) == 0 &&
              (pDevice->state.prev.Gamepad.wButtons    & XINPUT_GAMEPAD_GUIDE) == 0 )
         {
