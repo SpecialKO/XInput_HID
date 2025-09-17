@@ -329,6 +329,12 @@ struct SK_HID_DualSense_GetStateData // 63
 
 void SK_DualSense_HardCodedEdgeStuff (hid_device_file_s* pDevice)
 {
+  static bool enable_this_crap =
+    PathFileExistsW (L"SpecialK.internal");
+
+  if (! enable_this_crap)
+    return;
+
   static DWORD
         dwLastTest = 0;
   DWORD dwTimeNow  = timeGetTime ();

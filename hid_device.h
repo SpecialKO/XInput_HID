@@ -60,8 +60,9 @@ struct hid_device_file_s {
           &lImmediate, sizeof (LONG), nullptr, 0, &dwBytesRead, nullptr );
     }
 
-    return
-      get_input_report (this);
+    return get_input_report != nullptr ?
+           get_input_report (this)     :
+           false;
   }
 
   bool disconnect (void);

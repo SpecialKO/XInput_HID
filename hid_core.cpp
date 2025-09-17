@@ -245,10 +245,16 @@ SK_HID_ProcessChordInput (XINPUT_STATE& state, hid_device_file_s *pDevice)
           dwMask = config.bSpecialTriangleShutsOff;
           break;
       }
-  
-      if ( (dwButtons & dwMask              ) != 0 &&
+
+      static bool bButtonPressed =
+        (dwButtons & dwMask) != 0;
+
+      if (                          bButtonPressed &&
+           (dwButtons & dwMask              ) == 0 &&
            (dwButtons & XINPUT_GAMEPAD_GUIDE) != 0 )
       {
+        bButtonPressed = false;
+
         if (SK_Bluetooth_PowerOffGamepad (pDevice))
         {
           pDevice->disconnect ();
@@ -256,6 +262,9 @@ SK_HID_ProcessChordInput (XINPUT_STATE& state, hid_device_file_s *pDevice)
           return true;
         }
       }
+
+      bButtonPressed =
+        (dwButtons & dwMask) != 0;
     }
   
     switch (config.bSpecialCrossActivatesScreenSaver)
