@@ -266,6 +266,8 @@ SK_HID_ProcessChordInput (XINPUT_STATE& state, hid_device_file_s *pDevice)
       bButtonPressed =
         (dwButtons & dwMask) != 0;
     }
+
+    dwMask = 0;
   
     switch (config.bSpecialCrossActivatesScreenSaver)
     {
