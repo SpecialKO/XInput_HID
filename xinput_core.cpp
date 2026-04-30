@@ -1475,10 +1475,10 @@ SK_XInput_UpdatePolledDataAndTimestamp (hid_device_file_s *pDevice, bool bActive
       const float normL = sqrtf ( LX*LX + LY*LY );
       const float normR = sqrtf ( RX*RX + RY*RY );
 
-      if ( normL > 0.075f || LX0 > 0.05f || LY0 > 0.05f || // 10% deadzone applied to all analog input
-           normR > 0.075f || RX0 > 0.05f || RY0 > 0.05f ||
-              LT > 0.075f || LT0 > 0.05f ||
-              RT > 0.075f || RT0 > 0.05f ||
+      if ( normL > 0.4f || fabs (LX0) > 0.4f || fabs (LY0) > 0.4f || // 40% deadzone applied to all analog input
+           normR > 0.4f || fabs (RX0) > 0.4f || fabs (RY0) > 0.4f ||
+       fabs (LT) > 0.4f || fabs (LT0) > 0.4f ||
+       fabs (RT) > 0.4f || fabs (RT0) > 0.4f ||
               pDevice->state.current.Gamepad.wButtons !=
               pDevice->state.prev   .Gamepad.wButtons )
       {
