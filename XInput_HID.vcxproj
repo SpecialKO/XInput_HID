@@ -214,6 +214,7 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="hid_device.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="xinput_defs.h" />
   </ItemGroup>
   <ItemGroup>
@@ -268,6 +269,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="XInput.def" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="XInput_HID.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

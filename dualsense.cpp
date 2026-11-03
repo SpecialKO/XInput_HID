@@ -479,6 +479,34 @@ void SK_DualSense_HardCodedEdgeStuff (hid_device_file_s* pDevice)
     
       SendInput (1, input, sizeof (INPUT));
     }
+
+    else if ((pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB) && (! (pDevice->state.prev.Gamepad.wButtons & XINPUT_GAMEPAD_LEFT_THUMB)))
+    {
+      BYTE bScancode =
+        (BYTE)MapVirtualKey ('N', 0);
+    
+      DWORD dwFlags =
+        ( bScancode & 0xE0 ) == 0   ?
+          static_cast <DWORD> (0x0) :
+          static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+    
+      keybd_event ('N', bScancode, dwFlags,                   0);
+      keybd_event ('N', bScancode, dwFlags | KEYEVENTF_KEYUP, 0);
+    }
+
+    else if ((pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB) && (! (pDevice->state.prev.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_THUMB)))
+    {
+      BYTE bScancode =
+        (BYTE)MapVirtualKey ('M', 0);
+    
+      DWORD dwFlags =
+        ( bScancode & 0xE0 ) == 0   ?
+          static_cast <DWORD> (0x0) :
+          static_cast <DWORD> (KEYEVENTF_EXTENDEDKEY);
+    
+      keybd_event ('M', bScancode, dwFlags,                   0);
+      keybd_event ('M', bScancode, dwFlags | KEYEVENTF_KEYUP, 0);
+    }
     
     else if ((pDevice->state.current.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER) && (! (pDevice->state.prev.Gamepad.wButtons & XINPUT_GAMEPAD_RIGHT_SHOULDER)))
     {
